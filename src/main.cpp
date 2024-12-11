@@ -1,6 +1,7 @@
 #include "./feature/wifiManager/wifiManager.h"
 #include "./feature/gpioManager/gpioManager.h"
 #include "./feature/udpManager/udpManager.h"
+#include "./feature/sensorManager/BMP280.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -14,9 +15,13 @@
 #define UDP_PORT       1234
 #define HOST_IP        "192.168.4.1"
 
+// Configuration l'adresse I2C (par défaut : 0x76 ou 0x77)
+#define MY_BMP280_ADDRESS 0x76
+
 WifiManager* wifiManager;
 GpioManager* gpioManager;
 UdpManager* udpManager;
+BMP280* bmp280;
 
 extern "C" void app_main(void) {  // Utilisez "app_main" et non "appMain"
     ESP_ERROR_CHECK(nvs_flash_init());
