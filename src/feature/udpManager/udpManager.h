@@ -3,6 +3,10 @@
 
 #include "lwip/sockets.h"
 #include "lwip/netdb.h"
+#include "esp_log.h"
+#include "lwip/err.h"
+#include <string>
+#include "./core/ControllerRequestDTO/ControllerRequestDTO.h"
 #include "../gpioManager/gpioManager.h"
 
 class UdpManager {
@@ -20,8 +24,6 @@ private:
     GpioManager* gpioManager;
     int sock;
     struct sockaddr_in serverAddr;
-
-    bool isLadActivate=false;
 };
 
 #endif // UDP_MANAGER_H

@@ -1,6 +1,5 @@
 #include "udpManager.h"
-#include "esp_log.h"
-#include "lwip/err.h"
+
 
 static const char *TAG = "UdpManager";
 
@@ -40,6 +39,7 @@ void UdpManager::sendMessage(const char* message) {
     destAddr.sin_port = htons(port);
     inet_pton(AF_INET, hostIp, &destAddr.sin_addr.s_addr);
     sendto(sock, message, strlen(message), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
+    ESP_LOGI(TAG, "message send %s", message);
 }
 
 void UdpManager::receiveTask(void *pvParameters) {
@@ -55,8 +55,9 @@ void UdpManager::receiveTask(void *pvParameters) {
         } else {
             rxBuffer[len] = '\0'; // Terminer la chaîne
             ESP_LOGI(TAG, "Message reçu : %s", rxBuffer);
-            gpioManager->setLed(isLadActivate);
-            isLadActivate=!isLadActivate;
+            ControllerRequestDTO controllerRequestDTO = ControllerRequestDTO::fromJson(std::string(rxBuffer));
+
+            ESP_LOGI(TAG, "cast json to controllerRequestDTO : %s", controllerRequestDTO.toJson().c_str());
         }
     }
     vTaskDelete(NULL);

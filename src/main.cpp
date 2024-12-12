@@ -1,7 +1,6 @@
 #include "./feature/wifiManager/wifiManager.h"
 #include "./feature/gpioManager/gpioManager.h"
 #include "./feature/udpManager/udpManager.h"
-#include "./feature/sensorManager/BMP280.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -21,7 +20,6 @@
 WifiManager* wifiManager;
 GpioManager* gpioManager;
 UdpManager* udpManager;
-BMP280* bmp280;
 
 extern "C" void app_main(void) {  // Utilisez "app_main" et non "appMain"
     ESP_ERROR_CHECK(nvs_flash_init());
