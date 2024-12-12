@@ -123,12 +123,18 @@ void udp_receive_task(void *pvParameters) {
     }
     vTaskDelete(NULL);
 }
-
-// Fonction de gestion du Wi-Fi et UDP
+enum class LedState {
+    LED_OFF,
+    LED_ON
+};
+Fonction de gestion du Wi-Fi et UDP
 void app_main(void) {
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
+    
+    LedState state = LedState::LED_OFF;
+    ESP_LOGI("test_ENUM", "test_ENUM : %d", state);
 
     gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
     gpio_set_direction(WIFI_PIN, GPIO_MODE_OUTPUT);
