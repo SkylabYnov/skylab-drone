@@ -1,12 +1,13 @@
 #ifndef UDP_MANAGER_H
 #define UDP_MANAGER_H
 
+#include <string>
+#include <ControllerRequestDTO.h>
+
 #include "lwip/sockets.h"
 #include "lwip/netdb.h"
 #include "esp_log.h"
 #include "lwip/err.h"
-#include <string>
-#include "./core/ControllerRequestDTO/ControllerRequestDTO.h"
 #include "../gpioManager/gpioManager.h"
 
 class UdpManager {

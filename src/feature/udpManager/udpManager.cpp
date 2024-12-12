@@ -55,9 +55,10 @@ void UdpManager::receiveTask(void *pvParameters) {
         } else {
             rxBuffer[len] = '\0'; // Terminer la chaîne
             ESP_LOGI(TAG, "Message reçu : %s", rxBuffer);
-            ControllerRequestDTO controllerRequestDTO = ControllerRequestDTO::fromJson(std::string(rxBuffer));
+            cJSON* json = cJSON_Parse(rxBuffer);
+            ControllerRequestDTO controllerRequestDTO = ControllerRequestDTO::fromJson(json);
 
-            ESP_LOGI(TAG, "cast json to controllerRequestDTO : %s", controllerRequestDTO.toJson().c_str());
+            ESP_LOGI(TAG, "cast json to controllerRequestDTO : %s", cJSON_PrintUnformatted(controllerRequestDTO.toJson()));
         }
     }
     vTaskDelete(NULL);
