@@ -1,7 +1,6 @@
 #include "./feature/wifiManager/wifiManager.h"
 #include "./feature/gpioManager/gpioManager.h"
 #include "./feature/udpManager/udpManager.h"
-#include "./feature/sensorManager/BMP280.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -21,25 +20,36 @@
 WifiManager* wifiManager;
 GpioManager* gpioManager;
 UdpManager* udpManager;
-BMP280* bmp280;
 
-extern "C" void app_main(void) {  // Utilisez "app_main" et non "appMain"
+extern "C" void app_main(void) {
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    // Initialisation des modules
     gpioManager = new GpioManager(GPIO_NUM_21, GPIO_NUM_2);
+    if (!gpioManager) {
+        ESP_LOGE("app_main", "Erreur allocation gpioManager");
+        return;
+    }
     gpioManager->init();
 
     wifiManager = new WifiManager(WIFI_SSID, WIFI_PASSWORD);
+    if (!wifiManager) {
+        ESP_LOGE("app_main", "Erreur allocation wifiManager");
+        return;
+    }
     wifiManager->initSta();
 
-    udpManager = new UdpManager(HOST_IP, UDP_PORT,gpioManager);
+    udpManager = new UdpManager(HOST_IP, UDP_PORT, gpioManager);
+    if (!udpManager) {
+        ESP_LOGE("app_main", "Erreur allocation udpManager");
+        return;
+    }
     udpManager->init();
 
-    // Créer la tâche pour recevoir les messages UDP
     xTaskCreate([](void*) {
         udpManager->receiveTask(nullptr);
     }, "udp_receive_task", 4096, NULL, 5, NULL);
 }
+
+

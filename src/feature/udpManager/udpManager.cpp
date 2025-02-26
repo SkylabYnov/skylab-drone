@@ -1,6 +1,5 @@
 #include "udpManager.h"
-#include "esp_log.h"
-#include "lwip/err.h"
+
 
 static const char *TAG = "UdpManager";
 
@@ -40,6 +39,7 @@ void UdpManager::sendMessage(const char* message) {
     destAddr.sin_port = htons(port);
     inet_pton(AF_INET, hostIp, &destAddr.sin_addr.s_addr);
     sendto(sock, message, strlen(message), 0, (struct sockaddr *)&destAddr, sizeof(destAddr));
+    ESP_LOGI(TAG, "message send %s", message);
 }
 
 void UdpManager::receiveTask(void *pvParameters) {
@@ -55,8 +55,25 @@ void UdpManager::receiveTask(void *pvParameters) {
         } else {
             rxBuffer[len] = '\0'; // Terminer la chaîne
             ESP_LOGI(TAG, "Message reçu : %s", rxBuffer);
-            gpioManager->setLed(isLadActivate);
-            isLadActivate=!isLadActivate;
+            cJSON* json = cJSON_Parse(rxBuffer);
+            ControllerRequestDTO controllerRequestDTO = ControllerRequestDTO::fromJson(json);
+            delete json;
+
+            if(lastController.getCounter()>=controllerRequestDTO.getCounter()){
+                ESP_LOGI(TAG, "Message plus ancient que celui deja utiliser");
+                return;
+            }
+            
+            cJSON* jsonObj = controllerRequestDTO.toJson();
+            char* jsonAffichage = cJSON_PrintUnformatted(jsonObj);
+
+            if (jsonAffichage) {
+                ESP_LOGI(TAG, "cast json to controllerRequestDTO : %s", jsonAffichage);
+            }
+
+            delete jsonAffichage;
+            cJSON_Delete(jsonObj);  // Libérer l'objet `cJSON*`
+
         }
     }
     vTaskDelete(NULL);
