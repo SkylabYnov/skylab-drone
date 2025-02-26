@@ -25,6 +25,8 @@ private:
     GpioManager* gpioManager;
     int sock;
     struct sockaddr_in serverAddr;
+
+    ControllerRequestDTO lastController;
 };
 
 #endif // UDP_MANAGER_H

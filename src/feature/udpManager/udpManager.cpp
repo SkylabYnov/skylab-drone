@@ -57,8 +57,23 @@ void UdpManager::receiveTask(void *pvParameters) {
             ESP_LOGI(TAG, "Message reçu : %s", rxBuffer);
             cJSON* json = cJSON_Parse(rxBuffer);
             ControllerRequestDTO controllerRequestDTO = ControllerRequestDTO::fromJson(json);
+            delete json;
 
-            ESP_LOGI(TAG, "cast json to controllerRequestDTO : %s", cJSON_PrintUnformatted(controllerRequestDTO.toJson()));
+            if(lastController.getCounter()>=controllerRequestDTO.getCounter()){
+                ESP_LOGI(TAG, "Message plus ancient que celui deja utiliser");
+                return;
+            }
+            
+            cJSON* jsonObj = controllerRequestDTO.toJson();
+            char* jsonAffichage = cJSON_PrintUnformatted(jsonObj);
+
+            if (jsonAffichage) {
+                ESP_LOGI(TAG, "cast json to controllerRequestDTO : %s", jsonAffichage);
+            }
+
+            delete jsonAffichage;
+            cJSON_Delete(jsonObj);  // Libérer l'objet `cJSON*`
+
         }
     }
     vTaskDelete(NULL);
