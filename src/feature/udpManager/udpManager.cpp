@@ -43,7 +43,7 @@ void UdpManager::sendMessage(const char* message) {
 }
 
 void UdpManager::receiveTask(void *pvParameters) {
-    char rxBuffer[128];
+    char rxBuffer[512];
     struct sockaddr_in sourceAddr;
     socklen_t socklen = sizeof(sourceAddr);
 
@@ -58,21 +58,21 @@ void UdpManager::receiveTask(void *pvParameters) {
             cJSON* json = cJSON_Parse(rxBuffer);
             ControllerRequestDTO controllerRequestDTO = ControllerRequestDTO::fromJson(json);
             delete json;
-
-            if(lastController.getCounter()>=controllerRequestDTO.getCounter()){
-                ESP_LOGI(TAG, "Message plus ancient que celui deja utiliser");
-                return;
-            }
             
-            cJSON* jsonObj = controllerRequestDTO.toJson();
-            char* jsonAffichage = cJSON_PrintUnformatted(jsonObj);
+            if(lastController.getCounter()<controllerRequestDTO.getCounter()){
+                cJSON* jsonObj = controllerRequestDTO.toJson();
+                char* jsonAffichage = cJSON_PrintUnformatted(jsonObj);
 
-            if (jsonAffichage) {
-                ESP_LOGI(TAG, "cast json to controllerRequestDTO : %s", jsonAffichage);
+                if (jsonAffichage) {
+                    ESP_LOGI(TAG, "cast json to controllerRequestDTO : %s", jsonAffichage);
+                }
+
+                delete jsonAffichage;
+                cJSON_Delete(jsonObj);  // Libérer l'objet `cJSON*`
             }
-
-            delete jsonAffichage;
-            cJSON_Delete(jsonObj);  // Libérer l'objet `cJSON*`
+            else{
+                ESP_LOGI(TAG, "Message plus ancient que celui deja utiliser");
+            }
 
         }
     }
