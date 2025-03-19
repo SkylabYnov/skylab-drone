@@ -73,7 +73,6 @@ void UdpManager::receiveTask(void *pvParameters) {
             else{
                 ESP_LOGI(TAG, "Message plus ancient que celui deja utiliser");
             }
-
         }
     }
     vTaskDelete(NULL);
