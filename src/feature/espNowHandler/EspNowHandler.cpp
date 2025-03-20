@@ -1,7 +1,5 @@
 #include "EspNowHandler.h"
 
-#define TAG "ESP_NOW"
-
 uint8_t EspNowHandler::peer_mac[6] = ESP_MAC;
 
 EspNowHandler::EspNowHandler() {}
@@ -21,17 +19,24 @@ bool EspNowHandler::init() {
     }
 
     esp_now_register_recv_cb([](const esp_now_recv_info_t *info, const uint8_t *data, int len) {
-        if (len == sizeof(ControllerRequestData)) {  // Vérifier la taille
+        if (len == sizeof(ControllerRequestData)) {  
             ControllerRequestData receivedData;
-            memcpy(&receivedData, data, sizeof(receivedData));  // Convertir les données
-            
-            ControllerRequestDTO data = ControllerRequestDTO::fromStruct(receivedData);
-            // 🎯 Afficher les valeurs reçues
-            ESP_LOGI(TAG, "Données reçues : %s", data.toString().c_str());
+            memcpy(&receivedData, data, sizeof(receivedData));  
+    
+            ControllerRequestDTO controllerRequestDTO = ControllerRequestDTO::fromStruct(receivedData);
+    
+            // Protection avec un mutex
+            if (xSemaphoreTake(MotorController::xControllerRequestMutex, portMAX_DELAY)) {
+                MotorController::currentControllerRequestDTO = ControllerRequestDTO(controllerRequestDTO);
+                xSemaphoreGive(MotorController::xControllerRequestMutex);
+            }
+    
+            //ESP_LOGI(TAG, "Données reçues 2 : %s", controllerRequestDTO.toString().c_str());
         } else {
             ESP_LOGE(TAG, "Taille incorrecte des données reçues !");
         }
     });
+    
 
     esp_now_register_send_cb([](const uint8_t *macAddr, esp_now_send_status_t status) {
         ESP_LOGI(TAG, "Envoi: %s", status == ESP_NOW_SEND_SUCCESS ? "Succès" : "Échec");
