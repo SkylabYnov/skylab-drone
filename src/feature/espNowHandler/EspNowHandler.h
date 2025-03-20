@@ -5,8 +5,10 @@
 #include <esp_wifi.h>
 #include <esp_log.h>
 #include <string.h>
-#include <ControllerRequestDTO.h>
 #include <nvs_flash.h>
+#include "./feature/motorController/MotorController.h"
+
+#define TAG "ESP_NOW"
 
 #define ESP_MAC {0x20, 0x43, 0xA8, 0x66, 0x43, 0xC8}  // MAC du Drone
 
@@ -20,6 +22,7 @@ public:
 
 private:
     
+    ControllerRequestDTO lastControllerRequestDTO;
     static uint8_t peer_mac[6];  
 };
 

@@ -6,12 +6,14 @@
 #include "esp_netif.h"
 #include "esp_event.h"
 #include "./feature/espNowHandler/EspNowHandler.h"
+#include "./feature/motorController/MotorController.h"
 
 // Configuration l'adresse I2C (par défaut : 0x76 ou 0x77)
 #define MY_BMP280_ADDRESS 0x76
 
 EspNowHandler* espNowHandler;
 GpioManager* gpioManager;
+MotorController* motorController;
 
 extern "C" void app_main(void) {
     ESP_ERROR_CHECK(nvs_flash_init());
@@ -30,6 +32,12 @@ extern "C" void app_main(void) {
         ESP_LOGE("MAIN", "ESP-NOW init failed!");
         return;
     }
+
+    motorController = new MotorController();
+    motorController->init();
+
+    xTaskCreate([](void*) { motorController->Task(); },
+                "motorControllerTask", 4096, &motorController, 5, nullptr);
 }
 
 
