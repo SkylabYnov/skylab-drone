@@ -1,5 +1,5 @@
-#ifndef MOTOR_CONTROLLER_H
-#define MOTOR_CONTROLLER_H
+#ifndef MOTOR_MANAGER_H
+#define MOTOR_MANAGER_H
 
 #include "driver/ledc.h"
 #include "esp_log.h"
@@ -9,11 +9,11 @@
 #include "freertos/task.h"
 
 #define NUM_MOTORS 4
-#define TAG "MotorController"
+#define TAG "MotorManager"
 
-class MotorController {
+class MotorManager {
 public:
-    MotorController();
+    MotorManager();
     void init();
     void setMotorSpeed(int motorIndex, int speed); // speed: 0 - 180
     void emergencyStop();

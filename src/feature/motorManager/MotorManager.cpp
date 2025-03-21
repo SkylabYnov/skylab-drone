@@ -1,11 +1,11 @@
-#include "MotorController.h"
+#include "MotorManager.h"
 
-SemaphoreHandle_t MotorController::xControllerRequestMutex = xSemaphoreCreateMutex();
-ControllerRequestDTO MotorController::currentControllerRequestDTO;
+SemaphoreHandle_t MotorManager::xControllerRequestMutex = xSemaphoreCreateMutex();
+ControllerRequestDTO MotorManager::currentControllerRequestDTO;
 
-MotorController::MotorController() {}
+MotorManager::MotorManager() {}
 
-void MotorController::init() {
+void MotorManager::init() {
     for (int i = 0; i < NUM_MOTORS; i++) {
         ledc_timer_config_t timerConfig = {
             .speed_mode = LEDC_HIGH_SPEED_MODE,
@@ -32,7 +32,7 @@ void MotorController::init() {
     ESP_LOGI(TAG, "Moteurs initialisés");
 }
 
-void MotorController::setMotorSpeed(int motorIndex, int speed) {
+void MotorManager::setMotorSpeed(int motorIndex, int speed) {
     if(isEmergencyStop){
         return;
     }
@@ -48,7 +48,7 @@ void MotorController::setMotorSpeed(int motorIndex, int speed) {
     ESP_LOGI(TAG, "Moteur %d réglé à la vitesse %d (duty: %d)", motorIndex, speed, duty);
 }
 
-void MotorController::emergencyStop()
+void MotorManager::emergencyStop()
 {
     for (size_t i = 0; i < NUM_MOTORS; i++)
     {
@@ -57,14 +57,14 @@ void MotorController::emergencyStop()
     isEmergencyStop = true;
 }
 
-void MotorController::Task()
+void MotorManager::Task()
 {
     while (true) {
         ControllerRequestDTO controllerRequestDTO;
 
         // Protection avec un mutex pour éviter des corruptions de mémoire
         if (xSemaphoreTake(xControllerRequestMutex, portMAX_DELAY)) {
-            controllerRequestDTO = MotorController::currentControllerRequestDTO;
+            controllerRequestDTO = MotorManager::currentControllerRequestDTO;
             xSemaphoreGive(xControllerRequestMutex);
         }
 
@@ -89,14 +89,14 @@ void MotorController::Task()
 
         // Protection avec un mutex pour éviter des corruptions de mémoire
         if (xSemaphoreTake(xControllerRequestMutex, portMAX_DELAY)) {
-            MotorController::currentControllerRequestDTO.~ControllerRequestDTO();
+            MotorManager::currentControllerRequestDTO.~ControllerRequestDTO();
             xSemaphoreGive(xControllerRequestMutex);
         }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
-void MotorController::updateThrottle(float throttleInput) {
+void MotorManager::updateThrottle(float throttleInput) {
     if (throttleInput > deadZone || throttleInput < -deadZone) {
         for (int i = 0; i < NUM_MOTORS; i++) {
             motorSpeeds[i] = std::clamp(motorSpeeds[i] + throttleInput * 1.0f, 0.0f, 180.0f);
@@ -105,7 +105,7 @@ void MotorController::updateThrottle(float throttleInput) {
 }
  
 
-int MotorController::calcMotorDuty(int speed)
+int MotorManager::calcMotorDuty(int speed)
 {
     return PWM_MIN + ((PWM_ESC_MAX - PWM_MIN) * speed) / 180;
 }
