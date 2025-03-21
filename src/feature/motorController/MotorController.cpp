@@ -42,7 +42,6 @@ void MotorController::setMotorSpeed(int motorIndex, int speed) {
     }
     speed = std::max(0, std::min(speed, 180));
     ESP_LOGI(TAG, "speed : %d", speed);
-    currentSpeed[motorIndex] = speed;
     int duty = calcMotorDuty(speed);
     ESP_LOGI(TAG, "duty : %d", duty);
     ledc_set_duty(LEDC_HIGH_SPEED_MODE, ledcChannels[motorIndex], duty);
@@ -81,15 +80,14 @@ void MotorController::Task()
         }     
 
         if (controllerRequestDTO.flightController) {  
-            int mappedThrottle = (controllerRequestDTO.flightController->throttle > 0) 
-                ? static_cast<int>(controllerRequestDTO.flightController->throttle * 180) 
-                : 0;
-
-            setMotorSpeed(0, mappedThrottle);
-            setMotorSpeed(1, mappedThrottle);
-            setMotorSpeed(2, mappedThrottle);
-            setMotorSpeed(3, mappedThrottle);
+            updateThrottle(controllerRequestDTO.flightController->throttle);
+        
+            // Appliquer la vitesse mise à jour aux moteurs
+            for (int i = 0; i < NUM_MOTORS; i++) {
+                setMotorSpeed(i, motorSpeeds[i]);
+            }
         }
+        
 
         // Protection avec un mutex pour éviter des corruptions de mémoire
         if (xSemaphoreTake(xControllerRequestMutex, portMAX_DELAY)) {
@@ -100,6 +98,16 @@ void MotorController::Task()
     }
 }
 
-int MotorController::calcMotorDuty(int speed) {
+void MotorController::updateThrottle(float throttleInput) {
+    if (throttleInput > deadZone || throttleInput < -deadZone) {
+        for (int i = 0; i < NUM_MOTORS; i++) {
+            motorSpeeds[i] = std::clamp(motorSpeeds[i] + throttleInput * 1.0f, 0.0f, 180.0f);
+        }
+    } 
+}
+ 
+
+int MotorController::calcMotorDuty(int speed)
+{
     return PWM_MIN + ((PWM_ESC_MAX - PWM_MIN) * speed) / 180;
 }

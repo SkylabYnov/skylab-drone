@@ -31,10 +31,13 @@ private:
     static constexpr int PWM_MIN = int(PWM_MAX * 0.05);     // ~5% duty cycle (1000us)
     static constexpr int PWM_ESC_MAX = int(PWM_MAX * 0.10); // ~10% duty cycle (2000us)
 
-    int currentSpeed[NUM_MOTORS] = {0, 0, 0, 0};
+    int motorSpeeds[NUM_MOTORS] = {0, 0, 0, 0};
 
     bool isEmergencyStop = false;
+
+    float deadZone = 0.05f;
     
+    void updateThrottle(float throttleInput);
     int calcMotorDuty(int speed);
 };
 
