@@ -59,6 +59,8 @@ void MotorManager::emergencyStop()
 
 void MotorManager::Task()
 {
+    ControllerRequestDTO lastControllerRequestDTO; // Sauvegarde la dernière commande reçue
+
     while (true) {
         ControllerRequestDTO controllerRequestDTO;
 
@@ -68,6 +70,7 @@ void MotorManager::Task()
             xSemaphoreGive(xControllerRequestMutex);
         }
 
+        // Vérification du bouton d'arrêt d'urgence
         if (controllerRequestDTO.buttonEmergencyStop && *controllerRequestDTO.buttonEmergencyStop) {  
             ESP_LOGI(TAG, "Alerte : Bouton d'arrêt d'urgence activé !");
             emergencyStop();
@@ -77,31 +80,43 @@ void MotorManager::Task()
             ESP_LOGI(TAG, "Alerte : Bouton buttonMotorState activé !");
         }     
 
+        // Si on reçoit une nouvelle commande, on met à jour la sauvegarde
         if (controllerRequestDTO.flightController) {  
-            updateThrottle(controllerRequestDTO.flightController->throttle);
-        
-            // Appliquer la vitesse mise à jour aux moteurs
-            for (int i = 0; i < NUM_MOTORS; i++) {
-                setMotorSpeed(i, motorSpeeds[i]);
-            }
+            lastControllerRequestDTO = controllerRequestDTO;
         }
+
+        // Appliquer la dernière valeur de throttle en continu
+        if (lastControllerRequestDTO.flightController) {  
+            bool isInDeadZone = updateThrottle(lastControllerRequestDTO.flightController->throttle);
         
+            if(!isInDeadZone){
+                // Appliquer la vitesse mise à jour aux moteurs
+                for (int i = 0; i < NUM_MOTORS; i++) {
+                    setMotorSpeed(i, (int)motorSpeeds[i]);
+                }
+            }
+            
+        }
 
         // Protection avec un mutex pour éviter des corruptions de mémoire
         if (xSemaphoreTake(xControllerRequestMutex, portMAX_DELAY)) {
             MotorManager::currentControllerRequestDTO.~ControllerRequestDTO();
             xSemaphoreGive(xControllerRequestMutex);
         }
+
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
-void MotorManager::updateThrottle(float throttleInput) {
+
+bool MotorManager::updateThrottle(float throttleInput) {
     if (throttleInput > deadZone || throttleInput < -deadZone) {
         for (int i = 0; i < NUM_MOTORS; i++) {
-            motorSpeeds[i] = std::clamp(motorSpeeds[i] + throttleInput * 1.0f, 0.0f, 180.0f);
+            motorSpeeds[i] = std::clamp(motorSpeeds[i] + throttleInput * 0.5f, 0.0f, 180.0f);
         }
+        return false;
     } 
+    return true;
 }
  
 
