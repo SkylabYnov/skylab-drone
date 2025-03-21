@@ -25,10 +25,12 @@ bool EspNowHandler::init() {
     
             ControllerRequestDTO controllerRequestDTO = ControllerRequestDTO::fromStruct(receivedData);
     
-            // Protection avec un mutex
-            if (xSemaphoreTake(MotorController::xControllerRequestMutex, portMAX_DELAY)) {
-                MotorController::currentControllerRequestDTO = ControllerRequestDTO(controllerRequestDTO);
-                xSemaphoreGive(MotorController::xControllerRequestMutex);
+            if(controllerRequestDTO.flightController || controllerRequestDTO.buttonEmergencyStop || controllerRequestDTO.buttonMotorState){
+                // Protection avec un mutex
+                if (xSemaphoreTake(MotorManager::xControllerRequestMutex, portMAX_DELAY)) {
+                    MotorManager::currentControllerRequestDTO.addInControllerRequestDTO(controllerRequestDTO);
+                    xSemaphoreGive(MotorManager::xControllerRequestMutex);
+                }
             }
     
             //ESP_LOGI(TAG, "Données reçues 2 : %s", controllerRequestDTO.toString().c_str());
