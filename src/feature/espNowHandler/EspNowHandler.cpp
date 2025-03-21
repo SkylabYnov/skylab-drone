@@ -27,7 +27,7 @@ bool EspNowHandler::init() {
     
             // Protection avec un mutex
             if (xSemaphoreTake(MotorController::xControllerRequestMutex, portMAX_DELAY)) {
-                MotorController::currentControllerRequestDTO = ControllerRequestDTO(controllerRequestDTO);
+                MotorController::currentControllerRequestDTO.addInControllerRequestDTO(controllerRequestDTO);
                 xSemaphoreGive(MotorController::xControllerRequestMutex);
             }
     

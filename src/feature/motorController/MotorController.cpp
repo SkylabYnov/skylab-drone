@@ -63,8 +63,6 @@ void MotorController::emergencyStop()
 void MotorController::Task()
 {
     while (true) {
-        vTaskDelay(pdMS_TO_TICKS(10));
-
         ControllerRequestDTO controllerRequestDTO;
 
         // Protection avec un mutex pour éviter des corruptions de mémoire
@@ -73,16 +71,14 @@ void MotorController::Task()
             xSemaphoreGive(xControllerRequestMutex);
         }
 
-        if (lastControllerRequestDTO.getCounter() >= controllerRequestDTO.getCounter()) {
-            continue;  // Ne pas quitter la boucle, juste ignorer cette requête
-        }
-        lastControllerRequestDTO = controllerRequestDTO;
-
         if (controllerRequestDTO.buttonEmergencyStop && *controllerRequestDTO.buttonEmergencyStop) {  
             ESP_LOGI(TAG, "Alerte : Bouton d'arrêt d'urgence activé !");
             emergencyStop();
-            continue;
-        }        
+        }
+        
+        if (controllerRequestDTO.buttonMotorState && *controllerRequestDTO.buttonMotorState) {  
+            ESP_LOGI(TAG, "Alerte : Bouton buttonMotorState activé !");
+        }     
 
         if (controllerRequestDTO.flightController) {  
             int mappedThrottle = (controllerRequestDTO.flightController->throttle > 0) 
@@ -94,6 +90,13 @@ void MotorController::Task()
             setMotorSpeed(2, mappedThrottle);
             setMotorSpeed(3, mappedThrottle);
         }
+
+        // Protection avec un mutex pour éviter des corruptions de mémoire
+        if (xSemaphoreTake(xControllerRequestMutex, portMAX_DELAY)) {
+            MotorController::currentControllerRequestDTO.~ControllerRequestDTO();
+            xSemaphoreGive(xControllerRequestMutex);
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 

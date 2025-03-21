@@ -22,7 +22,6 @@ public:
     static SemaphoreHandle_t xControllerRequestMutex;
     static ControllerRequestDTO currentControllerRequestDTO;
 private:
-    ControllerRequestDTO lastControllerRequestDTO;
     const int escPins[NUM_MOTORS] = {13, 12, 14, 15};  // GPIOs utilisés pour les moteurs
     const ledc_channel_t ledcChannels[NUM_MOTORS] = {LEDC_CHANNEL_0, LEDC_CHANNEL_1, LEDC_CHANNEL_2, LEDC_CHANNEL_3};
 
