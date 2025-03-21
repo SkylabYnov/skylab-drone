@@ -41,9 +41,7 @@ void MotorController::setMotorSpeed(int motorIndex, int speed) {
         return;
     }
     speed = std::max(0, std::min(speed, 180));
-    ESP_LOGI(TAG, "speed : %d", speed);
     int duty = calcMotorDuty(speed);
-    ESP_LOGI(TAG, "duty : %d", duty);
     ledc_set_duty(LEDC_HIGH_SPEED_MODE, ledcChannels[motorIndex], duty);
     ledc_update_duty(LEDC_HIGH_SPEED_MODE, ledcChannels[motorIndex]);
 
