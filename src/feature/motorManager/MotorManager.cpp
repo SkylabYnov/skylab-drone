@@ -110,12 +110,10 @@ void MotorManager::Task()
 
 
 bool MotorManager::updateThrottle(float throttleInput) {
-    if (throttleInput > deadZone || throttleInput < -deadZone) {
-        for (int i = 0; i < NUM_MOTORS; i++) {
-            motorSpeeds[i] = std::clamp(motorSpeeds[i] + throttleInput * 0.5f, 0.0f, 180.0f);
-        }
-        return false;
-    } 
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        motorSpeeds[i] = std::clamp(motorSpeeds[i] + throttleInput * 0.5f, 0.0f, 180.0f);
+    }
+    return false;
     return true;
 }
  
