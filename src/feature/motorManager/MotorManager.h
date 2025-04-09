@@ -34,10 +34,8 @@ private:
     float motorSpeeds[NUM_MOTORS] = {0, 0, 0, 0};
 
     bool isEmergencyStop = false;
-
-    float deadZone = 0.2f;
     
-    bool updateThrottle(float throttleInput);
+    void updateThrottle(float throttleInput);
     int calcMotorDuty(int speed);
 };
 
