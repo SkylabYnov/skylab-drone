@@ -66,37 +66,30 @@ void MotorManager::Task()
 
         // Protection avec un mutex pour éviter des corruptions de mémoire
         if (xSemaphoreTake(xControllerRequestMutex, portMAX_DELAY)) {
-            controllerRequestDTO = MotorManager::currentControllerRequestDTO;
-            xSemaphoreGive(xControllerRequestMutex);
-        }
+            controllerRequestDTO = currentControllerRequestDTO;
 
-        // Vérification du bouton d'arrêt d'urgence
-        if (controllerRequestDTO.buttonEmergencyStop && *controllerRequestDTO.buttonEmergencyStop) {  
-            ESP_LOGI(TAG, "Alerte : Bouton d'arrêt d'urgence activé !");
-            emergencyStop();
-        }
-        
-        if (controllerRequestDTO.buttonMotorState && *controllerRequestDTO.buttonMotorState) {  
-            ESP_LOGI(TAG, "Alerte : Bouton buttonMotorState activé !");
-        }     
-
-        // Si on reçoit une nouvelle commande, on met à jour la sauvegarde
-        if (controllerRequestDTO.flightController) {  
-            lastControllerRequestDTO = controllerRequestDTO;
-        }
-
-        // Appliquer la dernière valeur de throttle en continu
-        if (lastControllerRequestDTO.flightController && !lastControllerRequestDTO.flightController->isFullZero()) {
-            updateThrottle(lastControllerRequestDTO.flightController->throttle);
-            for (int i = 0; i < NUM_MOTORS; i++) {
-                setMotorSpeed(i, (int)motorSpeeds[i]);
+            if (controllerRequestDTO.buttonEmergencyStop && *controllerRequestDTO.buttonEmergencyStop) {
+                ESP_LOGI(TAG, "Alerte : Bouton d'arrêt d'urgence !");
+                emergencyStop();
             }
-            
-        }
+    
+            if (controllerRequestDTO.buttonMotorState && *controllerRequestDTO.buttonMotorState) {
+                ESP_LOGI(TAG, "Bouton motorState activé");
+            }
+    
+            if (controllerRequestDTO.flightController) {
+                lastControllerRequestDTO = controllerRequestDTO;
+            }
+    
+            if (!isEmergencyStop && lastControllerRequestDTO.flightController &&
+                !lastControllerRequestDTO.flightController->isFullZero()) {
+                updateThrottle(lastControllerRequestDTO.flightController->throttle);
+                for (int i = 0; i < NUM_MOTORS; i++) {
+                    setMotorSpeed(i, motorSpeeds[i]);
+                }
+            }
 
-        // Protection avec un mutex pour éviter des corruptions de mémoire
-        if (xSemaphoreTake(xControllerRequestMutex, portMAX_DELAY)) {
-            MotorManager::currentControllerRequestDTO.~ControllerRequestDTO();
+            currentControllerRequestDTO.~ControllerRequestDTO();
             xSemaphoreGive(xControllerRequestMutex);
         }
 
