@@ -6,55 +6,56 @@ ControllerRequestDTO MotorManager::currentControllerRequestDTO;
 MotorManager::MotorManager() {}
 
 void MotorManager::init() {
-    for (int i = 0; i < NUM_MOTORS; i++) {
-        ledc_timer_config_t timerConfig = {
-            .speed_mode = LEDC_HIGH_SPEED_MODE,
-            .duty_resolution = LEDC_TIMER_12_BIT,
-            .timer_num = LEDC_TIMER_0,
-            .freq_hz = PWM_FREQ,
-            .clk_cfg = LEDC_AUTO_CLK,
-            .deconfigure = false
-        };
-        ledc_timer_config(&timerConfig);
+    ESP_LOGI(TAG, "Initialisation de MCPWM");
 
-        ledc_channel_config_t channelConfig = {
-            .gpio_num = escPins[i],
-            .speed_mode = LEDC_HIGH_SPEED_MODE,
-            .channel = ledcChannels[i],
-            .intr_type = LEDC_INTR_DISABLE,
-            .timer_sel = LEDC_TIMER_0,
-            .duty = PWM_MIN,
-            .hpoint = 0,
-            .flags = {0}
-        };
-        ledc_channel_config(&channelConfig);
+    // Tableau des signaux PWM correspondant aux moteurs
+    const mcpwm_io_signals_t mcpwmSignals[NUM_MOTORS] = {
+        MCPWM0A, MCPWM0B, MCPWM1A, MCPWM1B
+    };
+
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        // Configuration des GPIOs pour MCPWM
+        mcpwm_gpio_init(MCPWM_UNIT_0, mcpwmSignals[i], escPins[i]);
+
+        // Configuration du PWM
+        mcpwm_config_t pwm_config = {};
+        pwm_config.frequency = PWM_FREQ;
+        pwm_config.cmpr_a = 0;
+        pwm_config.cmpr_b = 0;
+        pwm_config.counter_mode = MCPWM_UP_COUNTER;
+        pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
+
+        // Initialisation du MCPWM pour chaque moteur
+        mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config);
     }
-    ESP_LOGI(TAG, "Moteurs initialisés");
+
+    ESP_LOGI(TAG, "MCPWM initialisé avec succès !");
 }
 
-void MotorManager::setMotorSpeed(int motorIndex, int speed) {
-    if(isEmergencyStop){
+
+void MotorManager::setMotorSpeed(int motorIndex, float speed) {
+    if (isEmergencyStop) {
         return;
     }
     if (motorIndex < 0 || motorIndex >= NUM_MOTORS) {
         ESP_LOGW(TAG, "Index moteur invalide: %d", motorIndex);
         return;
     }
-    speed = std::max(0, std::min(speed, 180));
-    int duty = calcMotorDuty(speed);
-    ledc_set_duty(LEDC_HIGH_SPEED_MODE, ledcChannels[motorIndex], duty);
-    ledc_update_duty(LEDC_HIGH_SPEED_MODE, ledcChannels[motorIndex]);
+    speed = std::clamp(speed, 0.0f, 1.0f);
+    float duty_cycle = float(speed) * (PWM_ESC_MAX - PWM_MIN) + PWM_MIN;
 
-    ESP_LOGI(TAG, "Moteur %d réglé à la vitesse %d (duty: %d)", motorIndex, speed, duty);
+    mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, mcpwmOperators[motorIndex], duty_cycle);
+    mcpwm_set_duty_type(MCPWM_UNIT_0, MCPWM_TIMER_0, mcpwmOperators[motorIndex], MCPWM_DUTY_MODE_0);
+
+    ESP_LOGI(TAG, "Moteur %d réglé à la vitesse %.4f (duty: %.4f)", motorIndex, speed, duty_cycle);
 }
 
-void MotorManager::emergencyStop()
-{
-    for (size_t i = 0; i < NUM_MOTORS; i++)
-    {
-        setMotorSpeed(i,0);
-    }
+void MotorManager::emergencyStop() {
     isEmergencyStop = true;
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, mcpwmOperators[i], 0);
+    }
+    ESP_LOGW(TAG, "Arrêt d'urgence activé !");
 }
 
 void MotorManager::Task()
@@ -89,7 +90,7 @@ void MotorManager::Task()
         if (lastControllerRequestDTO.flightController && !lastControllerRequestDTO.flightController->isFullZero()) {
             updateThrottle(lastControllerRequestDTO.flightController->throttle);
             for (int i = 0; i < NUM_MOTORS; i++) {
-                setMotorSpeed(i, (int)motorSpeeds[i]);
+                setMotorSpeed(i, motorSpeeds[i]);
             }
             
         }
@@ -107,7 +108,7 @@ void MotorManager::Task()
 
 void MotorManager::updateThrottle(float throttleInput) {
     for (int i = 0; i < NUM_MOTORS; i++) {
-        motorSpeeds[i] = std::clamp(motorSpeeds[i] + throttleInput * 0.5f, 0.0f, 180.0f);
+        motorSpeeds[i] = std::clamp(motorSpeeds[i] + throttleInput * 0.01f, 0.0f, 1.0f);
     }
 }
  
