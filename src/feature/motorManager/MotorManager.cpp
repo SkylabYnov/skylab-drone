@@ -86,14 +86,10 @@ void MotorManager::Task()
         }
 
         // Appliquer la dernière valeur de throttle en continu
-        if (lastControllerRequestDTO.flightController) {  
-            bool isInDeadZone = updateThrottle(lastControllerRequestDTO.flightController->throttle);
-        
-            if(!isInDeadZone){
-                // Appliquer la vitesse mise à jour aux moteurs
-                for (int i = 0; i < NUM_MOTORS; i++) {
-                    setMotorSpeed(i, (int)motorSpeeds[i]);
-                }
+        if (lastControllerRequestDTO.flightController && !lastControllerRequestDTO.flightController->isFullZero()) {
+            updateThrottle(lastControllerRequestDTO.flightController->throttle);
+            for (int i = 0; i < NUM_MOTORS; i++) {
+                setMotorSpeed(i, (int)motorSpeeds[i]);
             }
             
         }
@@ -109,12 +105,10 @@ void MotorManager::Task()
 }
 
 
-bool MotorManager::updateThrottle(float throttleInput) {
+void MotorManager::updateThrottle(float throttleInput) {
     for (int i = 0; i < NUM_MOTORS; i++) {
         motorSpeeds[i] = std::clamp(motorSpeeds[i] + throttleInput * 0.5f, 0.0f, 180.0f);
     }
-    return false;
-    return true;
 }
  
 

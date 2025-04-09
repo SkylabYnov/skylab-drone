@@ -35,7 +35,7 @@ private:
 
     bool isEmergencyStop = false;
     
-    bool updateThrottle(float throttleInput);
+    void updateThrottle(float throttleInput);
     int calcMotorDuty(int speed);
 };
 
