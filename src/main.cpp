@@ -7,6 +7,7 @@
 #include "esp_event.h"
 #include "./feature/espNowHandler/EspNowHandler.h"
 #include "./feature/motorManager/MotorManager.h"
+#include "./feature/sensorManager/MPU9250.h"
 
 // Configuration l'adresse I2C (par défaut : 0x76 ou 0x77)
 #define MY_BMP280_ADDRESS 0x76
@@ -14,6 +15,7 @@
 EspNowHandler* espNowHandler;
 GpioManager* gpioManager;
 MotorManager* motorManager;
+MPU9250* MPU9250Manager;
 
 extern "C" void app_main(void) {
     ESP_ERROR_CHECK(nvs_flash_init());
@@ -36,8 +38,13 @@ extern "C" void app_main(void) {
     motorManager = new MotorManager();
     motorManager->init();
 
+    MPU9250Manager = new MPU9250();
+
     xTaskCreate([](void*) { motorManager->Task(); },
                 "MotorManagerTask", 4096, &motorManager, 5, nullptr);
+
+    xTaskCreate([](void*) { MPU9250Manager->Task(); },
+                "MPU9250ManagerTask", 4096, &MPU9250Manager, 5, nullptr);
 }
 
 
