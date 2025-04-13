@@ -1,7 +1,7 @@
 #ifndef MOTOR_MANAGER_H
 #define MOTOR_MANAGER_H
 
-#include "driver/mcpwm.h"
+#include "driver/mcpwm_prelude.h"
 #include "esp_log.h"
 #include <algorithm>
 #include <ControllerRequestDTO.h>
@@ -15,7 +15,7 @@ class MotorManager {
 public:
     MotorManager();
     void init();
-    void setMotorSpeed(int motorIndex, float speed); // Vitesse entre 0.0 et 1.0
+    void setMotorSpeed(int motorIndex, float speed); // Speed between 0.0 and 1.0
     void emergencyStop();
     void resetEmergencyStop();
     void Task();
@@ -25,25 +25,20 @@ public:
 
 private:
     struct MotorPwmConfig {
-        mcpwm_unit_t unit;
-        mcpwm_timer_t timer;
-        mcpwm_operator_t op;
-        mcpwm_io_signals_t signal;
+        mcpwm_timer_handle_t timer;
+        mcpwm_oper_handle_t operator_handle;
+        mcpwm_cmpr_handle_t comparator;
+        mcpwm_gen_handle_t generator;
     };
 
     const int escPins[NUM_MOTORS] = {13, 12, 14, 15};
-    const MotorPwmConfig motorPwmConfigs[NUM_MOTORS] = {
-        { MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, MCPWM0A },
-        { MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_B, MCPWM0B },
-        { MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_A, MCPWM1A },
-        { MCPWM_UNIT_0, MCPWM_TIMER_1, MCPWM_OPR_B, MCPWM1B }
-    };
+    MotorPwmConfig motorPwmConfigs[NUM_MOTORS];
 
-    static constexpr int PWM_FREQ = 50;     // 50Hz pour les ESC
-    static constexpr int PWM_RES = 12;
-    static constexpr int PWM_MAX = (1 << PWM_RES) - 1;
-    static constexpr int PWM_MIN = int(PWM_MAX * 0.05);     // 1000us
-    static constexpr int PWM_ESC_MAX = int(PWM_MAX * 0.10); // 2000us
+    static constexpr int PWM_FREQ_HZ = 50;       // 50Hz for ESCs
+    static constexpr uint32_t TIMER_RESOLUTION_HZ = 1000000; // 1MHz resolution
+    static constexpr uint32_t PERIOD_TICKS = TIMER_RESOLUTION_HZ / PWM_FREQ_HZ; // 20000 ticks for 20ms period
+    static constexpr uint32_t MIN_PULSE_TICKS = 1000;  // 1000µs pulse width (idle)
+    static constexpr uint32_t MAX_PULSE_TICKS = 2000;  // 2000µs pulse width (full throttle)
 
     float motorSpeeds[NUM_MOTORS] = {0};
     bool isEmergencyStop = false;
@@ -51,4 +46,4 @@ private:
     void updateThrottle(float throttleInput);
 };
 
-#endif // MOTOR_MANAGER_H
+#endif
