@@ -54,12 +54,16 @@ public:
     float alphaRoll = 0.97f;  // Constante du filtre complémentaire
     float alphaPitch = 0.96f;  // Constante du filtre complémentaire
 
+    static float roll;
+    static float pitch;
+
     
     MPU9250();
 
     void Task();
 
 private:
+
     
     uint32_t lastTime = 0;
     esp_err_t i2c_master_init();

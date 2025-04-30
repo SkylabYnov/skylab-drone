@@ -3,8 +3,8 @@
 static const char *TAG = "MPU9250";
 
 // MPU9250.cpp
-float q0 = 1.0f, q1 = 0.0f, q2 = 0.0f, q3 = 0.0f;
-float integralFBx = 0.0f, integralFBy = 0.0f, integralFBz = 0.0f;
+float MPU9250::roll =0.0f;
+float MPU9250::pitch =0.0f;
 
 
 MPU9250::MPU9250() {
@@ -107,8 +107,7 @@ void MPU9250::Task()
 {
     float rollGyro = 0.0f;
     float pitchGyro = 0.0f;
-    float roll = 0.0f;
-    float pitch = 0.0f;
+    
 
     esp_err_t ret = i2c_master_init();
 
@@ -153,15 +152,12 @@ void MPU9250::Task()
         pitchGyro += gy * dt;
 
         // Complementary filter
-        roll  = alphaRoll * rollGyro + (1.0f - alphaRoll) * rollAcc;
-        pitch = alphaPitch * pitchGyro + (1.0f - alphaPitch) * pitchAcc;
+        MPU9250::roll  = alphaRoll * rollGyro + (1.0f - alphaRoll) * rollAcc;
+        MPU9250::pitch = alphaPitch * pitchGyro + (1.0f - alphaPitch) * pitchAcc;
 
-        // Correct gyro angle estimates
-        rollGyro = roll;
-        pitchGyro = pitch;
 
         ESP_LOGI(TAG, "Roll: %7.2f | Pitch: %7.2f || RollAcc: %7.2f | PitchAcc: %7.2f | RollGyro: %7.2f | PitchGyro: %7.2f",
-                 roll, pitch, rollAcc, pitchAcc, rollGyro, pitchGyro);
+            MPU9250::roll, MPU9250::pitch, rollAcc, pitchAcc, rollGyro, pitchGyro);
 
         vTaskDelay(pdMS_TO_TICKS(10)); // 100 Hz
     }
