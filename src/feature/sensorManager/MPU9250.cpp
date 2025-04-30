@@ -75,74 +75,41 @@ float MPU9250::readGyro(uint8_t axisOffset)
     return 0.0f;
 }
 
-void MPU9250::MahonyAHRSupdateIMU(float gx, float gy, float gz, float ax, float ay, float az, float dt)
+void MPU9250::calibrate_gyro_offsets()
 {
-    float recipNorm;
-    float halfvx, halfvy, halfvz;
-    float halfex, halfey, halfez;
+    const int samples = 5000;
+    float gxSum = 0, gySum = 0, gzSum = 0;
+    float axSum = 0, aySum = 0, azSum = 0;
 
-    // Normalize accelerometer
-    float norm = sqrtf(ax * ax + ay * ay + az * az);
-    if (norm == 0.0f) return; // avoid division by zero
-    ax /= norm;
-    ay /= norm;
-    az /= norm;
+    for (int i = 0; i < samples; i++) {
+        gxSum += readGyro(0);
+        gySum += readGyro(2);
+        gzSum += readGyro(4);
 
-    // Estimated direction of gravity
-    halfvx = q1 * q3 - q0 * q2;
-    halfvy = q0 * q1 + q2 * q3;
-    halfvz = q0 * q0 - 0.5f + q3 * q3;
-
-    // Error between estimated and measured direction of gravity
-    halfex = (ay * halfvz - az * halfvy);
-    halfey = (az * halfvx - ax * halfvz);
-    halfez = (ax * halfvy - ay * halfvx);
-
-    // Optional integral feedback
-    if (TWO_KI > 0.0f) {
-        integralFBx += TWO_KI * halfex * dt;
-        integralFBy += TWO_KI * halfey * dt;
-        integralFBz += TWO_KI * halfez * dt;
-        gx += integralFBx;
-        gy += integralFBy;
-        gz += integralFBz;
+        axSum += readAccel(0);
+        aySum += readAccel(2);
+        azSum += readAccel(4);
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 
-    // Apply proportional feedback
-    gx += TWO_KP * halfex;
-    gy += TWO_KP * halfey;
-    gz += TWO_KP * halfez;
+    OFFSET_GX = gxSum / samples;
+    OFFSET_GY = gySum / samples;
+    OFFSET_GZ = gzSum / samples;
+    
+    OFFSET_AX = axSum / samples;
+    OFFSET_AY = aySum / samples;
+    OFFSET_AZ = azSum / samples;
 
-    // Integrate rate of change of quaternion
-    gx *= (0.5f * dt);
-    gy *= (0.5f * dt);
-    gz *= (0.5f * dt);
-    float qa = q0, qb = q1, qc = q2;
-    q0 += (-qb * gx - qc * gy - q3 * gz);
-    q1 += (qa * gx + qc * gz - q3 * gy);
-    q2 += (qa * gy - qb * gz + q3 * gx);
-    q3 += (qa * gz + qb * gy - qc * gx);
-
-    // Normalize quaternion
-    recipNorm = 1.0f / sqrtf(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
-    q0 *= recipNorm;
-    q1 *= recipNorm;
-    q2 *= recipNorm;
-    q3 *= recipNorm;
-}
-
-float MPU9250::getRoll()
-{
-    return atan2f(q0*q1 + q2*q3, 0.5f - q1*q1 - q2*q2) * 57.29578f;
-}
-
-float MPU9250::getPitch()
-{
-    return asinf(-2.0f * (q1*q3 - q0*q2)) * 57.29578f;
+    ESP_LOGI(TAG, "Gyro offsets: GX=%.3f, GY=%.3f, GZ=%.3f, AX=%.3f, AY=%.3f, AZ=%.3f", OFFSET_GX, OFFSET_GY, OFFSET_GZ, OFFSET_AX, OFFSET_AY, OFFSET_AZ);
 }
 
 void MPU9250::Task()
 {
+    float rollGyro = 0.0f;
+    float pitchGyro = 0.0f;
+    float roll = 0.0f;
+    float pitch = 0.0f;
+
     esp_err_t ret = i2c_master_init();
 
     if (ret != ESP_OK)
@@ -152,14 +119,12 @@ void MPU9250::Task()
     }
     ESP_LOGI(TAG, "I2C initialized");
 
+    uint32_t lastTime = xTaskGetTickCount() * portTICK_PERIOD_MS;
+
     initMPU9250();
     lastTime = xTaskGetTickCount() * portTICK_PERIOD_MS;
-
-    // Initialisation des angles et du filtre
-    float rollGyro = 0.0f;
-    float pitchGyro = 0.0f;
-    float roll = 0.0f;
-    float pitch = 0.0f;
+    initMPU9250();
+    calibrate_gyro_offsets();
 
     while (true) {
         uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
@@ -170,50 +135,34 @@ void MPU9250::Task()
         }
         lastTime = now;
 
-        // Lecture des capteurs
-        float ax = readAccel(0);
-        float ay = readAccel(2);
-        float az = readAccel(4);
+        // Read accelerometer and gyroscope
+        float ax = readAccel(0) - OFFSET_AX;
+        float ay = readAccel(2) - OFFSET_AY;
+        float az = readAccel(4) - OFFSET_AZ;
 
-        float gx = readGyro(0);
-        float gy = readGyro(2);
-        float gz = readGyro(4);
+        float gx = readGyro(0) - OFFSET_GX;
+        float gy = readGyro(2) - OFFSET_GY;
+        float gz = readGyro(4) - OFFSET_GZ;
 
-        // Offsets
-        ax -= OFFSET_AX;
-        ay -= OFFSET_AY;
-        az -= OFFSET_AZ;
+        // Accelerometer: calculate roll/pitch
+        float rollAcc  = atan2f(ay, az) * 180.0f / M_PI;
+        float pitchAcc = atanf(-ax / sqrtf(ay * ay + az * az)) * 180.0f / M_PI;
 
-        gx -= OFFSET_GX;
-        gy -= OFFSET_GY;
-        gz -= OFFSET_GZ;
+        // Integrate gyro data
+        rollGyro  += gx * dt;
+        pitchGyro += gy * dt;
 
-        // Accéléromètre : calcul du roll/pitch
-        // float rollAcc  = atan2f(ay, az) * RAD_TO_DEG;
-        // float pitchAcc = atan2f(-ax, sqrtf(ay*ay + az*az)) * RAD_TO_DEG;
+        // Complementary filter
+        roll  = alphaRoll * rollGyro + (1.0f - alphaRoll) * rollAcc;
+        pitch = alphaPitch * pitchGyro + (1.0f - alphaPitch) * pitchAcc;
 
-        // // Gyroscope : intégration
-        // rollGyro  += gx * dt;
-        // pitchGyro += gy * dt;
+        // Correct gyro angle estimates
+        rollGyro = roll;
+        pitchGyro = pitch;
 
-        // // Filtre complémentaire
-        // roll  = rollGyro * alpha + (1.0f - alpha) * rollAcc ;
-        // pitch = pitchGyro * alpha + (1.0f - alpha) * pitchAcc ;
+        ESP_LOGI(TAG, "Roll: %7.2f | Pitch: %7.2f || RollAcc: %7.2f | PitchAcc: %7.2f | RollGyro: %7.2f | PitchGyro: %7.2f",
+                 roll, pitch, rollAcc, pitchAcc, rollGyro, pitchGyro);
 
-        // Convert gyro from deg/s to rad/s
-        gx *= (M_PI / 180.0f);
-        gy *= (M_PI / 180.0f);
-        gz *= (M_PI / 180.0f);
-
-        // Update filter (assuming 100Hz update rate, so dt = 0.01)
-        MahonyAHRSupdateIMU(gx, gy, gz, ax, ay, az, 0.01f);
-
-        // Get roll and pitch
-        float roll  = getRoll();
-        float pitch = getPitch();
-
-        ESP_LOGI(TAG,"Roll: %.2f, Pitch: %.2f\n", roll, pitch);
-
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(10)); // 100 Hz
     }
 }

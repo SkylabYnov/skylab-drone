@@ -44,14 +44,15 @@ extern float integralFBx, integralFBy, integralFBz;
 
 class MPU9250 {
 public:
-    const float OFFSET_AX = 0.02f;
-    const float OFFSET_AY = 0.02f;
-    const float OFFSET_AZ = -1.14f;
-    const float OFFSET_GX = -3.01f;
-    const float OFFSET_GY = 5.28f;
-    const float OFFSET_GZ = -0.60f;
+    float OFFSET_AX = 0.02f;
+    float OFFSET_AY = 0.02f;
+    float OFFSET_AZ = -1.14f;
+    float OFFSET_GX = -3.01f;
+    float OFFSET_GY = 5.28f;
+    float OFFSET_GZ = -0.60f;
 
-    const float alpha = 0.96f;  // Constante du filtre complémentaire
+    float alphaRoll = 0.97f;  // Constante du filtre complémentaire
+    float alphaPitch = 0.96f;  // Constante du filtre complémentaire
 
     
     MPU9250();
@@ -67,9 +68,9 @@ private:
     void initMPU9250();
     float readAccel(uint8_t axisOffset);
     float readGyro(uint8_t axisOffset);
-    void MahonyAHRSupdateIMU(float gx, float gy, float gz, float ax, float ay, float az, float dt);
-    float getRoll();
-    float getPitch();
+
+    void calibrate_gyro_offsets();
+
 };
 
 #endif
