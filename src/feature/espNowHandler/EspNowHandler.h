@@ -6,7 +6,7 @@
 #include <esp_log.h>
 #include <string.h>
 #include <nvs_flash.h>
-#include "./feature/MotorManager/MotorManager.h"
+#include "../motorManager/MotorManager.h"
 
 #define TAG "ESP_NOW"
 
