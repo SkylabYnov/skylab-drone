@@ -1,13 +1,13 @@
-#include "./feature/gpioManager/gpioManager.h"
+#include "feature/gpioManager/gpioManager.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "esp_netif.h"
 #include "esp_event.h"
-#include "./feature/espNowHandler/EspNowHandler.h"
-#include "./feature/motorManager/MotorManager.h"
-#include "./feature/sensorManager/MPU9250.h"
+#include "feature/espNowHandler/EspNowHandler.h"
+#include "feature/motorManager/MotorManager.h"
+#include "feature/sensorManager/MPU9250.h"
 
 // Configuration l'adresse I2C (par défaut : 0x76 ou 0x77)
 #define MY_BMP280_ADDRESS 0x76
