@@ -6,75 +6,119 @@ ControllerRequestDTO MotorManager::currentControllerRequestDTO;
 MotorManager::MotorManager() {}
 
 void MotorManager::init() {
+    ESP_LOGI(TAG, "Initializing MCPWM...");
+
     for (int i = 0; i < NUM_MOTORS; i++) {
-        ledc_timer_config_t timerConfig = {
-            .speed_mode = LEDC_HIGH_SPEED_MODE,
-            .duty_resolution = LEDC_TIMER_12_BIT,
-            .timer_num = LEDC_TIMER_0,
-            .freq_hz = PWM_FREQ,
-            .clk_cfg = LEDC_AUTO_CLK,
-            .deconfigure = false
+        // Create timer configuration
+        int group_id = i / 2;  // Use group 0 for motors 0,1 and group 1 for motors 2,3
+        mcpwm_timer_config_t timer_config = {
+            .group_id = group_id,
+            .clk_src = MCPWM_TIMER_CLK_SRC_DEFAULT,
+            .resolution_hz = TIMER_RESOLUTION_HZ,
+            .period_ticks = PERIOD_TICKS,
+            .count_mode = MCPWM_TIMER_COUNT_MODE_UP,
         };
-        ledc_timer_config(&timerConfig);
-
-        ledc_channel_config_t channelConfig = {
-            .gpio_num = escPins[i],
-            .speed_mode = LEDC_HIGH_SPEED_MODE,
-            .channel = ledcChannels[i],
-            .intr_type = LEDC_INTR_DISABLE,
-            .timer_sel = LEDC_TIMER_0,
-            .duty = PWM_MIN,
-            .hpoint = 0,
-            .flags = {0}
+        
+        // Create timer handle
+        ESP_ERROR_CHECK(mcpwm_new_timer(&timer_config, &motorPwmConfigs[i].timer));
+        
+        // Create operator configuration
+        mcpwm_operator_config_t operator_config = {
+            .group_id = group_id,
         };
-        ledc_channel_config(&channelConfig);
+        
+        // Create operator handle
+        ESP_ERROR_CHECK(mcpwm_new_operator(&operator_config, &motorPwmConfigs[i].operator_handle));
+        
+        // Connect operator to timer
+        ESP_ERROR_CHECK(mcpwm_operator_connect_timer(motorPwmConfigs[i].operator_handle, motorPwmConfigs[i].timer));
+        
+        // Create comparator configuration
+        mcpwm_comparator_config_t comparator_config = {
+            .flags.update_cmp_on_tez = true,
+        };
+        
+        // Create comparator handle
+        ESP_ERROR_CHECK(mcpwm_new_comparator(motorPwmConfigs[i].operator_handle, &comparator_config, &motorPwmConfigs[i].comparator));
+        
+        // Create generator configuration
+        mcpwm_generator_config_t generator_config = {
+            .gen_gpio_num = escPins[i],
+        };
+        
+        // Create generator handle
+        ESP_ERROR_CHECK(mcpwm_new_generator(motorPwmConfigs[i].operator_handle, &generator_config, &motorPwmConfigs[i].generator));
+        
+        // Set generator action on timer and comparator events
+        // High at zero, low at compare value
+        ESP_ERROR_CHECK(mcpwm_generator_set_action_on_timer_event(
+            motorPwmConfigs[i].generator,
+            MCPWM_GEN_TIMER_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, MCPWM_TIMER_EVENT_EMPTY, MCPWM_GEN_ACTION_HIGH)
+        ));
+        ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(
+            motorPwmConfigs[i].generator,
+            MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, motorPwmConfigs[i].comparator, MCPWM_GEN_ACTION_LOW)
+        ));
+        
+        // Set initial duty cycle (idle)
+        ESP_ERROR_CHECK(mcpwm_comparator_set_compare_value(motorPwmConfigs[i].comparator, MIN_PULSE_TICKS));
+        
+        // Start MCPWM timer
+        ESP_ERROR_CHECK(mcpwm_timer_enable(motorPwmConfigs[i].timer));
+        ESP_ERROR_CHECK(mcpwm_timer_start_stop(motorPwmConfigs[i].timer, MCPWM_TIMER_START_NO_STOP));
     }
-    ESP_LOGI(TAG, "Moteurs initialisés");
+
+    // Send initial idle signal to arm ESCs
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        setMotorSpeed(i, 0.0f);
+    }
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    ESP_LOGI(TAG, "Initialization complete");
 }
 
-void MotorManager::setMotorSpeed(int motorIndex, int speed) {
-    if(isEmergencyStop){
+void MotorManager::setMotorSpeed(int motorIndex, float speed) {
+    if (isEmergencyStop || motorIndex < 0 || motorIndex >= NUM_MOTORS) {
         return;
     }
-    if (motorIndex < 0 || motorIndex >= NUM_MOTORS) {
-        ESP_LOGW(TAG, "Index moteur invalide: %d", motorIndex);
-        return;
-    }
-    speed = std::max(0, std::min(speed, 180));
-    int duty = calcMotorDuty(speed);
-    ledc_set_duty(LEDC_HIGH_SPEED_MODE, ledcChannels[motorIndex], duty);
-    ledc_update_duty(LEDC_HIGH_SPEED_MODE, ledcChannels[motorIndex]);
 
-    ESP_LOGI(TAG, "Moteur %d réglé à la vitesse %d (duty: %d)", motorIndex, speed, duty);
+    speed = std::clamp(speed, 0.0f, 1.0f);
+    uint32_t pulse_width_ticks = static_cast<uint32_t>(speed * (MAX_PULSE_TICKS - MIN_PULSE_TICKS) + MIN_PULSE_TICKS);
+    
+    ESP_ERROR_CHECK(mcpwm_comparator_set_compare_value(motorPwmConfigs[motorIndex].comparator, pulse_width_ticks));
+
+    ESP_LOGI(TAG, "Motor %d set to speed %.4f (pulse width: %u µs)", motorIndex, speed, pulse_width_ticks);
 }
 
-void MotorManager::emergencyStop()
-{
-    for (size_t i = 0; i < NUM_MOTORS; i++)
-    {
-        setMotorSpeed(i,0);
-    }
+void MotorManager::emergencyStop() {
     isEmergencyStop = true;
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        ESP_ERROR_CHECK(mcpwm_comparator_set_compare_value(motorPwmConfigs[i].comparator, MIN_PULSE_TICKS));
+    }
+    ESP_LOGW(TAG, "Emergency stop activated!");
 }
 
-void MotorManager::Task()
-{
-    ControllerRequestDTO lastControllerRequestDTO; // Sauvegarde la dernière commande reçue
+void MotorManager::resetEmergencyStop() {
+    isEmergencyStop = false;
+    ESP_LOGI(TAG, "Emergency stop deactivated");
+}
+
+void MotorManager::Task() {
+    ControllerRequestDTO lastControllerRequestDTO;
 
     while (true) {
         ControllerRequestDTO controllerRequestDTO;
 
-        // Protection avec un mutex pour éviter des corruptions de mémoire
         if (xSemaphoreTake(xControllerRequestMutex, portMAX_DELAY)) {
             controllerRequestDTO = currentControllerRequestDTO;
 
             if (controllerRequestDTO.buttonEmergencyStop && *controllerRequestDTO.buttonEmergencyStop) {
-                ESP_LOGI(TAG, "Alerte : Bouton d'arrêt d'urgence !");
+                ESP_LOGI(TAG, "Alert: Emergency stop button pressed!");
                 emergencyStop();
             }
     
             if (controllerRequestDTO.buttonMotorState && *controllerRequestDTO.buttonMotorState) {
-                ESP_LOGI(TAG, "Bouton motorState activé");
+                ESP_LOGI(TAG, "Motor state button activated");
             }
     
             if (controllerRequestDTO.flightController) {
@@ -97,15 +141,8 @@ void MotorManager::Task()
     }
 }
 
-
 void MotorManager::updateThrottle(float throttleInput) {
     for (int i = 0; i < NUM_MOTORS; i++) {
-        motorSpeeds[i] = std::clamp(motorSpeeds[i] + throttleInput * 0.5f, 0.0f, 180.0f);
+        motorSpeeds[i] = std::clamp(motorSpeeds[i] + throttleInput * 0.001f, 0.0f, 1.0f);
     }
-}
- 
-
-int MotorManager::calcMotorDuty(int speed)
-{
-    return PWM_MIN + ((PWM_ESC_MAX - PWM_MIN) * speed) / 180;
 }
