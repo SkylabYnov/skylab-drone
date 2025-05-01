@@ -8,6 +8,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "../PID/PID.h"
+#include "../sensorManager/MPU9250.h"
 
 #define NUM_MOTORS 4
 #define TAG "MotorManager"
