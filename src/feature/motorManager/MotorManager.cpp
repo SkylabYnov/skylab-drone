@@ -189,10 +189,18 @@ void MotorManager::Task() {
                 float correctionRoll = pidRoll.calculate(setRoll, currentOrientation.roll, dt);
             
                 // Appliquer les corrections aux moteurs (exemple simplifié pour 4 moteurs)
-                motorSpeeds[0] += correctionPitch + correctionRoll;
+                // Moteur 0 : avant-gauche
+                motorSpeeds[0] += correctionPitch + correctionRoll; 
+
+                // Moteur 1 : avant-droit
                 motorSpeeds[1] += correctionPitch - correctionRoll;
+
+                // Moteur 2 : arrière-gauche
                 motorSpeeds[2] += -correctionPitch + correctionRoll;
+                
+                // Moteur 3 : arrière-droit
                 motorSpeeds[3] += -correctionPitch - correctionRoll;
+
             
                 // Clamp
                 for (int i = 0; i < NUM_MOTORS; i++) {
