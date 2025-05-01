@@ -3,8 +3,8 @@
 static const char *TAG = "MPU9250";
 
 // MPU9250.cpp
-float MPU9250::roll =0.0f;
-float MPU9250::pitch =0.0f;
+SemaphoreHandle_t MPU9250::xOrientationMutex = xSemaphoreCreateMutex();
+Orientation MPU9250::orientation;
 
 
 MPU9250::MPU9250() {
@@ -122,7 +122,6 @@ void MPU9250::Task()
 
     initMPU9250();
     lastTime = xTaskGetTickCount() * portTICK_PERIOD_MS;
-    initMPU9250();
     calibrate_gyro_offsets();
 
     while (true) {
@@ -151,13 +150,14 @@ void MPU9250::Task()
         rollGyro  += gx * dt;
         pitchGyro += gy * dt;
 
-        // Complementary filter
-        MPU9250::roll  = alphaRoll * rollGyro + (1.0f - alphaRoll) * rollAcc;
-        MPU9250::pitch = alphaPitch * pitchGyro + (1.0f - alphaPitch) * pitchAcc;
-
-
-        ESP_LOGI(TAG, "Roll: %7.2f | Pitch: %7.2f || RollAcc: %7.2f | PitchAcc: %7.2f | RollGyro: %7.2f | PitchGyro: %7.2f",
-            MPU9250::roll, MPU9250::pitch, rollAcc, pitchAcc, rollGyro, pitchGyro);
+        if (xSemaphoreTake(xOrientationMutex, portMAX_DELAY)){
+            // Complementary filter
+            MPU9250::orientation.roll  = alphaRoll * rollGyro + (1.0f - alphaRoll) * rollAcc;
+            MPU9250::orientation.pitch = alphaPitch * pitchGyro + (1.0f - alphaPitch) * pitchAcc;
+            ESP_LOGI(TAG, "Roll: %7.2f | Pitch: %7.2f",
+                MPU9250::orientation.roll, MPU9250::orientation.pitch);
+            xSemaphoreGive(xOrientationMutex);
+        }
 
         vTaskDelay(pdMS_TO_TICKS(10)); // 100 Hz
     }

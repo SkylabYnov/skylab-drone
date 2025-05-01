@@ -7,6 +7,7 @@
 #include <ControllerRequestDTO.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "../PID/PID.h"
 
 #define NUM_MOTORS 4
 #define TAG "MotorManager"
@@ -30,6 +31,10 @@ private:
         mcpwm_cmpr_handle_t comparator;
         mcpwm_gen_handle_t generator;
     };
+
+    PID pidPitch{1.0f, 0.0f, 0.05f}; 
+    PID pidRoll{1.0f, 0.0f, 0.05f};
+
 
     const int escPins[NUM_MOTORS] = {13, 12, 14, 15};
     MotorPwmConfig motorPwmConfigs[NUM_MOTORS];

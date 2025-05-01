@@ -41,8 +41,8 @@ extern "C" void app_main(void) {
     xTaskCreate([](void*) { motorManager->Task(); },
                 "MotorManagerTask", 4096, &motorManager, 5, nullptr);
     
-    // MPU9250Manager = new MPU9250();
-    // xTaskCreate([](void*) { MPU9250Manager->Task(); },
-    //             "MPU9250ManagerTask", 4096, &MPU9250Manager, 5, nullptr);
+    MPU9250Manager = new MPU9250();
+    xTaskCreate([](void*) { MPU9250Manager->Task(); },
+                "MPU9250ManagerTask", 4096, &MPU9250Manager, 5, nullptr);
 }
 

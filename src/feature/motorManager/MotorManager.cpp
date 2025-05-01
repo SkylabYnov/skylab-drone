@@ -152,6 +152,13 @@ void MotorManager::Task() {
     while (true) {
         ControllerRequestDTO controllerRequestDTO;
 
+        Orientation currentOrientation;
+        if (xSemaphoreTake(MPU9250::xOrientationMutex, pdMS_TO_TICKS(5))) {
+            currentOrientation = MPU9250::orientation;
+            xSemaphoreGive(MPU9250::xOrientationMutex);
+        }
+
+
         if (xSemaphoreTake(xControllerRequestMutex, portMAX_DELAY)) {
             controllerRequestDTO = currentControllerRequestDTO;
 
@@ -170,11 +177,30 @@ void MotorManager::Task() {
 
             if (!isEmergencyStop && lastControllerRequestDTO.flightController &&
                 !lastControllerRequestDTO.flightController->isFullZero()) {
+            
                 updateThrottle(lastControllerRequestDTO.flightController->throttle);
+            
+                // Correction PID
+                float dt = 0.01f; // 10ms (vTaskDelay = 10ms)
+                float setPitch = 0.0f; // drone doit rester à plat
+                float setRoll = 0.0f;
+            
+                float correctionPitch = pidPitch.calculate(setPitch, currentOrientation.pitch, dt);
+                float correctionRoll = pidRoll.calculate(setRoll, currentOrientation.roll, dt);
+            
+                // Appliquer les corrections aux moteurs (exemple simplifié pour 4 moteurs)
+                motorSpeeds[0] += correctionPitch + correctionRoll;
+                motorSpeeds[1] += correctionPitch - correctionRoll;
+                motorSpeeds[2] += -correctionPitch + correctionRoll;
+                motorSpeeds[3] += -correctionPitch - correctionRoll;
+            
+                // Clamp
                 for (int i = 0; i < NUM_MOTORS; i++) {
+                    motorSpeeds[i] = std::clamp(motorSpeeds[i], 0.0f, 1.0f);
                     setMotorSpeed(i, motorSpeeds[i]);
                 }
             }
+            
 
             // Clear the shared DTO
             currentControllerRequestDTO.~ControllerRequestDTO();

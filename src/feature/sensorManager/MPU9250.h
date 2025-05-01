@@ -7,6 +7,7 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include <math.h>
+#include "Orientation.h"
 
 // I2C master configuration
 #define I2C_MASTER_NUM            I2C_NUM_0
@@ -30,15 +31,9 @@
 
 #define RAD_TO_DEG 57.295779513
 
-#include <math.h>
-
 // Mahony filter gain
 #define TWO_KP 2.0f // Proportional gain
 #define TWO_KI 0.0f // Integral gain (optional)
-
-
-extern float q0, q1, q2, q3;
-extern float integralFBx, integralFBy, integralFBz;
 
 
 
@@ -54,8 +49,8 @@ public:
     float alphaRoll = 0.97f;  // Constante du filtre complémentaire
     float alphaPitch = 0.96f;  // Constante du filtre complémentaire
 
-    static float roll;
-    static float pitch;
+    static SemaphoreHandle_t xOrientationMutex;
+    static Orientation orientation;
 
     
     MPU9250();
