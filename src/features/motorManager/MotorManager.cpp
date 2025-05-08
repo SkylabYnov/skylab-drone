@@ -17,7 +17,7 @@ MotorManager::MotorManager() {
 
 // Function to initialize the motor manager
 bool MotorManager::init() {
-    ESP_LOGI(TAG, "Initializing MCPWM...");
+    ESP_LOGI(TAG_MOTOR_MANAGER, "Initializing MCPWM...");
 
     for (int i = 0; i < NUM_MOTORS; i++) {
         // Create timer configuration
@@ -32,6 +32,7 @@ bool MotorManager::init() {
             .flags = {
                 .update_period_on_empty = true,
                 .update_period_on_sync  = false,
+                .allow_pd = false,
             }
         };
         ESP_ERROR_CHECK(mcpwm_new_timer(&timer_config, &motorPwmConfigs[i].timer));
@@ -109,7 +110,7 @@ bool MotorManager::init() {
     }
     vTaskDelay(pdMS_TO_TICKS(2000));
 
-    ESP_LOGI(TAG, "Initialization complete");
+    ESP_LOGI(TAG_MOTOR_MANAGER, "Initialization complete");
     return true;
 }
 
@@ -131,7 +132,7 @@ void MotorManager::setMotorSpeed(int motorIndex, float speed) {
     );
 
     ESP_LOGI(
-        TAG,
+        TAG_MOTOR_MANAGER,
         "Motor %d set to speed %.4f (pulse width: %" PRIu32 " µs)",
         motorIndex,
         speed,
@@ -144,15 +145,15 @@ void MotorManager::emergencyStop() {
     isEmergencyStop = true;
     for (int i = 0; i < NUM_MOTORS; i++) {
         motorSpeeds[i] = 0.0f;
-        mcpwm_comparator_set_compare_value(..., MIN_PULSE_TICKS);
+        mcpwm_comparator_set_compare_value(motorPwmConfigs[i].comparator, MIN_PULSE_TICKS);
     }
-    ESP_LOGW(TAG, "Emergency stop activated!");
+    ESP_LOGW(TAG_MOTOR_MANAGER, "Emergency stop activated!");
 }
 
 // Function to reset the emergency stop
 void MotorManager::resetEmergencyStop() {
     isEmergencyStop = false;
-    ESP_LOGI(TAG, "Emergency stop deactivated; motors zeroed");
+    ESP_LOGI(TAG_MOTOR_MANAGER, "Emergency stop deactivated; motors zeroed");
     // Optionally re‑arm ESCs by sending idle pulse for a moment:
     for (int i = 0; i < NUM_MOTORS; i++) {
         setMotorSpeed(i, 0.0f);
@@ -178,12 +179,12 @@ void MotorManager::Task() {
             controllerRequestDTO = currentControllerRequestDTO;
 
             if (controllerRequestDTO.buttonEmergencyStop && *controllerRequestDTO.buttonEmergencyStop) {
-                ESP_LOGI(TAG, "Alert: Emergency stop button pressed!");
+                ESP_LOGI(TAG_MOTOR_MANAGER, "Alert: Emergency stop button pressed!");
                 emergencyStop();
             }
 
             if (controllerRequestDTO.buttonMotorState && *controllerRequestDTO.buttonMotorState) {
-                ESP_LOGI(TAG, "Motor state button activated");
+                ESP_LOGI(TAG_MOTOR_MANAGER, "Motor state button activated");
             }
 
             if (controllerRequestDTO.flightController) {

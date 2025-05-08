@@ -9,7 +9,7 @@
 #include <string.h>
 #include <nvs_flash.h>
 
-#define TAG "ESP_NOW"
+#define TAG_ESP_NOW "ESP_NOW"
 
 #define ESP_MAC {0x20, 0x43, 0xA8, 0x66, 0x43, 0xC8} // MAC du Drone
 

@@ -1,17 +1,19 @@
 #ifndef MOTOR_MANAGER_H
 #define MOTOR_MANAGER_H
 
+#include <features/PID/PID.h>
+#include <features/sensorManager/MPU9250.h>
+#include <ControllerRequestDTO.h>
+
 #include "driver/mcpwm_prelude.h"
 #include "esp_log.h"
 #include <algorithm>
-#include <ControllerRequestDTO.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "../PID/PID.h"
-#include "../sensorManager/MPU9250.h"
+
 
 #define NUM_MOTORS 4
-#define TAG "MotorManager"
+#define TAG_MOTOR_MANAGER "MotorManager"
 
 class MotorManager {
 public:
