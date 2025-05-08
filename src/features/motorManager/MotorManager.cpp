@@ -5,7 +5,15 @@
 SemaphoreHandle_t MotorManager::xControllerRequestMutex = xSemaphoreCreateMutex();
 ControllerRequestDTO MotorManager::currentControllerRequestDTO;
 
-MotorManager::MotorManager() {}
+MotorManager::MotorManager() {
+    // Initialize motor speeds to zero
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        motorSpeeds[i] = 0.0f;
+    }
+
+    // Initialize emergency stop flag
+    isEmergencyStop = false;
+}
 
 // Function to initialize the motor manager
 bool MotorManager::init() {
@@ -111,7 +119,6 @@ void MotorManager::setMotorSpeed(int motorIndex, float speed) {
         return;
     }
 
-    speed = std::clamp(speed, 0.0f, 1.0f);
     uint32_t pulse_width_ticks = static_cast<uint32_t>(
         speed * (MAX_PULSE_TICKS - MIN_PULSE_TICKS) + MIN_PULSE_TICKS
     );
@@ -136,12 +143,8 @@ void MotorManager::setMotorSpeed(int motorIndex, float speed) {
 void MotorManager::emergencyStop() {
     isEmergencyStop = true;
     for (int i = 0; i < NUM_MOTORS; i++) {
-        ESP_ERROR_CHECK(
-            mcpwm_comparator_set_compare_value(
-                motorPwmConfigs[i].comparator,
-                MIN_PULSE_TICKS
-            )
-        );
+        motorSpeeds[i] = 0.0f;
+        mcpwm_comparator_set_compare_value(..., MIN_PULSE_TICKS);
     }
     ESP_LOGW(TAG, "Emergency stop activated!");
 }
@@ -149,7 +152,12 @@ void MotorManager::emergencyStop() {
 // Function to reset the emergency stop
 void MotorManager::resetEmergencyStop() {
     isEmergencyStop = false;
-    ESP_LOGI(TAG, "Emergency stop deactivated");
+    ESP_LOGI(TAG, "Emergency stop deactivated; motors zeroed");
+    // Optionally re‑arm ESCs by sending idle pulse for a moment:
+    for (int i = 0; i < NUM_MOTORS; i++) {
+        setMotorSpeed(i, 0.0f);
+    }
+    vTaskDelay(pdMS_TO_TICKS(500));
 }
 
 // Function call to start the task
@@ -189,27 +197,25 @@ void MotorManager::Task() {
             
                 // Correction PID
                 float dt = 0.01f; // 10ms (vTaskDelay = 10ms)
-                float setPitch = 0.0f; // drone doit rester à plat
-                float setRoll = 0.0f;
+                float targetPitch = 0.0f; // drone doit rester à plat
+                float targetRoll = 0.0f;
             
-                float correctionPitch = pidPitch.calculate(setPitch, currentOrientation.pitch, dt);
-                float correctionRoll = pidRoll.calculate(setRoll, currentOrientation.roll, dt);
+                float correctionPitch = pidPitch.calculate(targetPitch, currentOrientation.pitch, dt);
+                float correctionRoll = pidRoll.calculate(targetRoll, currentOrientation.roll, dt);
             
-                // Appliquer les corrections aux moteurs (exemple simplifié pour 4 moteurs)
                 // Moteur 0 : avant-gauche
-                motorSpeeds[0] += correctionPitch + correctionRoll; 
+                motorSpeeds[0] += correctionPitch + correctionRoll;
 
                 // Moteur 1 : avant-droit
                 motorSpeeds[1] += correctionPitch - correctionRoll;
 
-                // Moteur 2 : arrière-gauche
-                motorSpeeds[2] += -correctionPitch + correctionRoll;
+                // Moteur 2 : arrière-droit
+                motorSpeeds[2] += -correctionPitch - correctionRoll;
                 
-                // Moteur 3 : arrière-droit
-                motorSpeeds[3] += -correctionPitch - correctionRoll;
+                // Moteur 3 : arrière-gauche
+                motorSpeeds[3] += -correctionPitch + correctionRoll;
 
-            
-                // Clamp
+                // Set motor speeds with clamping
                 for (int i = 0; i < NUM_MOTORS; i++) {
                     motorSpeeds[i] = std::clamp(motorSpeeds[i], 0.0f, 1.0f);
                     setMotorSpeed(i, motorSpeeds[i]);
