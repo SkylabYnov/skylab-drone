@@ -76,6 +76,7 @@ void MotorManager::init() {
                 MCPWM_GEN_ACTION_HIGH
             )
         ));
+        
         ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(
             motorPwmConfigs[i].generator,
             MCPWM_GEN_COMPARE_EVENT_ACTION(
