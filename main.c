@@ -123,11 +123,13 @@ void udp_receive_task(void *pvParameters) {
     }
     vTaskDelete(NULL);
 }
+
 enum class LedState {
     LED_OFF,
     LED_ON
 };
-Fonction de gestion du Wi-Fi et UDP
+
+// Fonction de gestion du Wi-Fi et UDP
 void app_main(void) {
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
