@@ -16,7 +16,7 @@
 class MotorManager {
 public:
     MotorManager();
-    void init();
+    bool init();
     void setMotorSpeed(int motorIndex, float speed); // Speed between 0.0 and 1.0
     void emergencyStop();
     void resetEmergencyStop();
@@ -33,9 +33,6 @@ private:
         mcpwm_gen_handle_t generator;
     };
 
-    PID pidPitch{1.0f, 0.0f, 0.05f}; 
-    PID pidRoll{1.0f, 0.0f, 0.05f};
-
 
     const int escPins[NUM_MOTORS] = {13, 12, 14, 15};
     MotorPwmConfig motorPwmConfigs[NUM_MOTORS];
@@ -46,8 +43,18 @@ private:
     static constexpr uint32_t MIN_PULSE_TICKS = 1000;  // 1000µs pulse width (idle)
     static constexpr uint32_t MAX_PULSE_TICKS = 2000;  // 2000µs pulse width (full throttle)
 
+    static constexpr float pkp = 1.0f; // Proportional gain
+    static constexpr float pki = 0.0f; // Integral gain
+    static constexpr float pkd = 0.05f; // Derivative gain
+    static constexpr float rkp = 1.0f; // Proportional gain
+    static constexpr float rki = 0.0f; // Integral gain
+    static constexpr float rkd = 0.05f; // Derivative gain
+
     float motorSpeeds[NUM_MOTORS] = {0};
     bool isEmergencyStop = false;
+
+    PID pidPitch{pkp, pki, pkd}; // PID controller for pitch
+    PID pidRoll{rkp, rki, rkd};   // PID controller for roll
 
     void updateThrottle(float throttleInput);
 };

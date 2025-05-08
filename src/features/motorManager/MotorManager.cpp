@@ -1,4 +1,4 @@
-#include "MotorManager.h"
+#include <features/motorManager/MotorManager.h>
 #include <inttypes.h>
 
 // Static member initializations
@@ -7,7 +7,8 @@ ControllerRequestDTO MotorManager::currentControllerRequestDTO;
 
 MotorManager::MotorManager() {}
 
-void MotorManager::init() {
+// Function to initialize the motor manager
+bool MotorManager::init() {
     ESP_LOGI(TAG, "Initializing MCPWM...");
 
     for (int i = 0; i < NUM_MOTORS; i++) {
@@ -101,8 +102,10 @@ void MotorManager::init() {
     vTaskDelay(pdMS_TO_TICKS(2000));
 
     ESP_LOGI(TAG, "Initialization complete");
+    return true;
 }
 
+// Function to set motor speed
 void MotorManager::setMotorSpeed(int motorIndex, float speed) {
     if (isEmergencyStop || motorIndex < 0 || motorIndex >= NUM_MOTORS) {
         return;
@@ -129,6 +132,7 @@ void MotorManager::setMotorSpeed(int motorIndex, float speed) {
     );
 }
 
+// Function to handle emergency stop
 void MotorManager::emergencyStop() {
     isEmergencyStop = true;
     for (int i = 0; i < NUM_MOTORS; i++) {
@@ -142,11 +146,13 @@ void MotorManager::emergencyStop() {
     ESP_LOGW(TAG, "Emergency stop activated!");
 }
 
+// Function to reset the emergency stop
 void MotorManager::resetEmergencyStop() {
     isEmergencyStop = false;
     ESP_LOGI(TAG, "Emergency stop deactivated");
 }
 
+// Function call to start the task
 void MotorManager::Task() {
     ControllerRequestDTO lastControllerRequestDTO;
 

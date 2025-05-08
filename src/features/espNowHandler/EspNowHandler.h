@@ -1,29 +1,30 @@
 #ifndef ESP_NOW_HANDLER_H
 #define ESP_NOW_HANDLER_H
 
+#include <features/motorManager/MotorManager.h>
+
 #include <esp_now.h>
 #include <esp_wifi.h>
 #include <esp_log.h>
 #include <string.h>
 #include <nvs_flash.h>
-#include "../motorManager/MotorManager.h"
 
 #define TAG "ESP_NOW"
 
-#define ESP_MAC {0x20, 0x43, 0xA8, 0x66, 0x43, 0xC8}  // MAC du Drone
+#define ESP_MAC {0x20, 0x43, 0xA8, 0x66, 0x43, 0xC8} // MAC du Drone
 
-class EspNowHandler {
+class EspNowHandler
+{
 public:
     EspNowHandler();
     ~EspNowHandler();
 
     bool init();
-    void send_data(const ControllerRequestData& requestData);
+    void send_data(const ControllerRequestData &requestData);
 
 private:
-    
     ControllerRequestDTO lastControllerRequestDTO;
-    static uint8_t peer_mac[6];  
+    static uint8_t peer_mac[6];
 };
 
 #endif // ESP_NOW_HANDLER_H

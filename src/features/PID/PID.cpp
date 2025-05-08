@@ -1,6 +1,6 @@
-#include "PID.h"
+#include <features/PID/PID.h>
 
-PID::PID(float kp, float ki, float kd): kp(kp), ki(ki), kd(kd), previousError(0), integral(0) {}
+PID::PID(float kp, float ki, float kd) : kp(kp), ki(ki), kd(kd), previousError(0), integral(0) {}
 
 float PID::calculate(float setpoint, float measured, float dt)
 {

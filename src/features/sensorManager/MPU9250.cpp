@@ -1,4 +1,4 @@
-#include "MPU9250.h"
+#include <features/sensorManager/MPU9250.h>
 
 static const char *TAG = "MPU9250";
 
@@ -6,9 +6,9 @@ static const char *TAG = "MPU9250";
 SemaphoreHandle_t MPU9250::xOrientationMutex = xSemaphoreCreateMutex();
 Orientation MPU9250::orientation;
 
-
-MPU9250::MPU9250() {
-    }
+MPU9250::MPU9250()
+{
+}
 
 esp_err_t MPU9250::i2c_master_init()
 {
@@ -20,14 +20,16 @@ esp_err_t MPU9250::i2c_master_init()
     conf.scl_pullup_en = GPIO_PULLUP_ENABLE;
     conf.master.clk_speed = I2C_MASTER_FREQ_HZ;
     esp_err_t err = i2c_param_config(I2C_MASTER_NUM, &conf);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         ESP_LOGE(TAG, "i2c_param_config failed");
         return err;
     }
     err = i2c_driver_install(I2C_MASTER_NUM, conf.mode,
                              I2C_MASTER_RX_BUF_DISABLE,
                              I2C_MASTER_TX_BUF_DISABLE, 0);
-    if (err != ESP_OK) {
+    if (err != ESP_OK)
+    {
         ESP_LOGE(TAG, "i2c_driver_install failed");
     }
     return err;
@@ -35,7 +37,7 @@ esp_err_t MPU9250::i2c_master_init()
 
 esp_err_t MPU9250::writeRegister(uint8_t devAddr, uint8_t reg, uint8_t value)
 {
-    uint8_t data[2] = { reg, value };
+    uint8_t data[2] = {reg, value};
     return i2c_master_write_to_device(I2C_MASTER_NUM, devAddr, data, sizeof(data),
                                       pdMS_TO_TICKS(I2C_TIMEOUT_MS));
 }
@@ -43,7 +45,7 @@ esp_err_t MPU9250::writeRegister(uint8_t devAddr, uint8_t reg, uint8_t value)
 esp_err_t MPU9250::readRegisters(uint8_t devAddr, uint8_t reg, uint8_t count, uint8_t *dest)
 {
     return i2c_master_write_read_device(I2C_MASTER_NUM, devAddr, &reg, 1, dest, count,
-        pdMS_TO_TICKS(I2C_TIMEOUT_MS));
+                                        pdMS_TO_TICKS(I2C_TIMEOUT_MS));
 }
 
 void MPU9250::initMPU9250()
@@ -58,7 +60,8 @@ void MPU9250::initMPU9250()
 float MPU9250::readAccel(uint8_t axisOffset)
 {
     uint8_t rawData[2] = {0};
-    if (readRegisters(MPU9250_ADDR, MPU9250_ACCEL_XOUT_H + axisOffset, 2, rawData) == ESP_OK) {
+    if (readRegisters(MPU9250_ADDR, MPU9250_ACCEL_XOUT_H + axisOffset, 2, rawData) == ESP_OK)
+    {
         int16_t value = (((int16_t)rawData[0]) << 8) | rawData[1];
         return (float)value / 16384.0f;
     }
@@ -68,7 +71,8 @@ float MPU9250::readAccel(uint8_t axisOffset)
 float MPU9250::readGyro(uint8_t axisOffset)
 {
     uint8_t rawData[2] = {0};
-    if (readRegisters(MPU9250_ADDR, MPU9250_GYRO_XOUT_H + axisOffset, 2, rawData) == ESP_OK) {
+    if (readRegisters(MPU9250_ADDR, MPU9250_GYRO_XOUT_H + axisOffset, 2, rawData) == ESP_OK)
+    {
         int16_t value = (((int16_t)rawData[0]) << 8) | rawData[1];
         return (float)value / 131.0f;
     }
@@ -81,7 +85,8 @@ void MPU9250::calibrate_gyro_offsets()
     float gxSum = 0, gySum = 0, gzSum = 0;
     float axSum = 0, aySum = 0, azSum = 0;
 
-    for (int i = 0; i < samples; i++) {
+    for (int i = 0; i < samples; i++)
+    {
         gxSum += readGyro(0);
         gySum += readGyro(2);
         gzSum += readGyro(4);
@@ -95,7 +100,7 @@ void MPU9250::calibrate_gyro_offsets()
     OFFSET_GX = gxSum / samples;
     OFFSET_GY = gySum / samples;
     OFFSET_GZ = gzSum / samples;
-    
+
     OFFSET_AX = axSum / samples;
     OFFSET_AY = aySum / samples;
     OFFSET_AZ = azSum / samples;
@@ -107,7 +112,6 @@ void MPU9250::Task()
 {
     float rollGyro = 0.0f;
     float pitchGyro = 0.0f;
-    
 
     esp_err_t ret = i2c_master_init();
 
@@ -124,10 +128,12 @@ void MPU9250::Task()
     lastTime = xTaskGetTickCount() * portTICK_PERIOD_MS;
     calibrate_gyro_offsets();
 
-    while (true) {
+    while (true)
+    {
         uint32_t now = xTaskGetTickCount() * portTICK_PERIOD_MS;
         float dt = (now - lastTime) / 1000.0f;
-        if (dt <= 0.0f) {
+        if (dt <= 0.0f)
+        {
             vTaskDelay(pdMS_TO_TICKS(1));
             continue;
         }
@@ -143,19 +149,20 @@ void MPU9250::Task()
         float gz = readGyro(4) - OFFSET_GZ;
 
         // Accelerometer: calculate roll/pitch
-        float rollAcc  = atan2f(ay, az) * 180.0f / M_PI;
+        float rollAcc = atan2f(ay, az) * 180.0f / M_PI;
         float pitchAcc = atanf(-ax / sqrtf(ay * ay + az * az)) * 180.0f / M_PI;
 
         // Integrate gyro data
-        rollGyro  += gx * dt;
+        rollGyro += gx * dt;
         pitchGyro += gy * dt;
 
-        if (xSemaphoreTake(xOrientationMutex, portMAX_DELAY)){
+        if (xSemaphoreTake(xOrientationMutex, portMAX_DELAY))
+        {
             // Complementary filter
-            MPU9250::orientation.roll  = alphaRoll * rollGyro + (1.0f - alphaRoll) * rollAcc;
+            MPU9250::orientation.roll = alphaRoll * rollGyro + (1.0f - alphaRoll) * rollAcc;
             MPU9250::orientation.pitch = alphaPitch * pitchGyro + (1.0f - alphaPitch) * pitchAcc;
             ESP_LOGI(TAG, "Roll: %7.2f | Pitch: %7.2f",
-                MPU9250::orientation.roll, MPU9250::orientation.pitch);
+                     MPU9250::orientation.roll, MPU9250::orientation.pitch);
             xSemaphoreGive(xOrientationMutex);
         }
 
