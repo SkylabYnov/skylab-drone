@@ -32,10 +32,6 @@
 
 #define RAD_TO_DEG 57.295779513
 
-// Mahony filter gain
-#define TWO_KP 2.0f // Proportional gain
-#define TWO_KI 0.0f // Integral gain (optional)
-
 class MPU9250
 {
 public:

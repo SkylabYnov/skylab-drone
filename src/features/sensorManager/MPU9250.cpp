@@ -122,7 +122,7 @@ void MPU9250::Task()
     }
     ESP_LOGI(TAG, "I2C initialized");
 
-    uint32_t lastTime = xTaskGetTickCount() * portTICK_PERIOD_MS;
+    
 
     initMPU9250();
     lastTime = xTaskGetTickCount() * portTICK_PERIOD_MS;
@@ -149,8 +149,8 @@ void MPU9250::Task()
         float gz = readGyro(4) - OFFSET_GZ;
 
         // Accelerometer: calculate roll/pitch
-        float rollAcc = atan2f(ay, az) * 180.0f / M_PI;
-        float pitchAcc = atanf(-ax / sqrtf(ay * ay + az * az)) * 180.0f / M_PI;
+        float rollAcc = atan2f(ay, az) * RAD_TO_DEG;
+        float pitchAcc = atanf(-ax / sqrtf(ay * ay + az * az)) * RAD_TO_DEG;
 
         // Integrate gyro data
         rollGyro += gx * dt;
@@ -161,8 +161,6 @@ void MPU9250::Task()
             // Complementary filter
             MPU9250::orientation.roll = alphaRoll * rollGyro + (1.0f - alphaRoll) * rollAcc;
             MPU9250::orientation.pitch = alphaPitch * pitchGyro + (1.0f - alphaPitch) * pitchAcc;
-            ESP_LOGI(TAG, "Roll: %7.2f | Pitch: %7.2f",
-                     MPU9250::orientation.roll, MPU9250::orientation.pitch);
             xSemaphoreGive(xOrientationMutex);
         }
 
