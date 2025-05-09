@@ -1,8 +1,8 @@
 #ifndef MOTOR_MANAGER_H
 #define MOTOR_MANAGER_H
 
-#include <features/PID/PID.h>
-#include <features/sensorManager/MPU9250.h>
+#include <features/PidManager/PidManager.h>
+#include <features/SensorManager/MPU9250.h>
 #include <ControllerRequestDTO.h>
 
 #include "driver/mcpwm_prelude.h"
@@ -55,8 +55,8 @@ private:
     float motorSpeeds[NUM_MOTORS] = {0};
     bool isEmergencyStop = false;
 
-    PID pidPitch{pkp, pki, pkd}; // PID controller for pitch
-    PID pidRoll{rkp, rki, rkd};   // PID controller for roll
+    PidManager pidPitch{pkp, pki, pkd}; // PID controller for pitch
+    PidManager pidRoll{rkp, rki, rkd};   // PID controller for roll
 
     void updateThrottle(float throttleInput);
 };

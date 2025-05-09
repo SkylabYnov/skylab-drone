@@ -1,7 +1,7 @@
-#include <features/espNowHandler/EspNowHandler.h>
-#include <features/motorManager/MotorManager.h>
-#include <features/sensorManager/MPU9250.h>
-#include <features/gpioManager/gpioManager.h>
+#include <features/EspNowHandler/EspNowHandler.h>
+#include <features/MotorManager/MotorManager.h>
+#include <features/SensorManager/MPU9250.h>
+#include <features/GpioManager/GpioManager.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"

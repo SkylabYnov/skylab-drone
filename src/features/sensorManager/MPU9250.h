@@ -1,8 +1,6 @@
 #ifndef MPU9250_H_
 #define MPU9250_H_
 
-#include <features/sensorManager/Orientation.h>
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/i2c.h"
@@ -26,11 +24,16 @@
 #define MPU9250_GYRO_XOUT_H 0x43
 #define MPU9250_INT_PIN_CFG 0x37
 
-// AK8963 (magnetometer) definitions
-#define AK8963_ADDR 0x0C
-#define AK8963_CNTL1 0x0A // Control register 1 (for setting continuous mode)
-
 #define RAD_TO_DEG 57.295779513
+
+#define TAG_IMU "MPU9250"
+
+struct Orientation
+{
+    float roll;
+    float pitch;
+    float yaw;
+};
 
 class MPU9250
 {

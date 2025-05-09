@@ -1,7 +1,7 @@
-class PID
+class PidManager
 {
 public:
-    PID(float kp, float ki, float kd);
+    PidManager(float kp, float ki, float kd);
 
     float calculate(float setpoint, float measured, float dt);
 

@@ -1,10 +1,8 @@
-#include <features/sensorManager/MPU9250.h>
-
-static const char *TAG = "MPU9250";
+#include <features/SensorManager/MPU9250.h>
 
 // MPU9250.cpp
 SemaphoreHandle_t MPU9250::xOrientationMutex = xSemaphoreCreateMutex();
-Orientation MPU9250::orientation;
+Orientation MPU9250::orientation = {0.0f, 0.0f, 0.0f};
 
 MPU9250::MPU9250()
 {
@@ -22,7 +20,7 @@ esp_err_t MPU9250::i2c_master_init()
     esp_err_t err = i2c_param_config(I2C_MASTER_NUM, &conf);
     if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "i2c_param_config failed");
+        ESP_LOGE(TAG_IMU, "i2c_param_config failed");
         return err;
     }
     err = i2c_driver_install(I2C_MASTER_NUM, conf.mode,
@@ -30,7 +28,7 @@ esp_err_t MPU9250::i2c_master_init()
                              I2C_MASTER_TX_BUF_DISABLE, 0);
     if (err != ESP_OK)
     {
-        ESP_LOGE(TAG, "i2c_driver_install failed");
+        ESP_LOGE(TAG_IMU, "i2c_driver_install failed");
     }
     return err;
 }
@@ -81,7 +79,7 @@ float MPU9250::readGyro(uint8_t axisOffset)
 
 void MPU9250::calibrate_gyro_offsets()
 {
-    const int samples = 5000;
+    const int samples = 2500;
     float gxSum = 0, gySum = 0, gzSum = 0;
     float axSum = 0, aySum = 0, azSum = 0;
 
@@ -105,24 +103,24 @@ void MPU9250::calibrate_gyro_offsets()
     OFFSET_AY = aySum / samples;
     OFFSET_AZ = azSum / samples;
 
-    ESP_LOGI(TAG, "Gyro offsets: GX=%.3f, GY=%.3f, GZ=%.3f, AX=%.3f, AY=%.3f, AZ=%.3f", OFFSET_GX, OFFSET_GY, OFFSET_GZ, OFFSET_AX, OFFSET_AY, OFFSET_AZ);
+    ESP_LOGI(TAG_IMU, "Gyro offsets: GX=%.3f, GY=%.3f, GZ=%.3f, AX=%.3f, AY=%.3f, AZ=%.3f", OFFSET_GX, OFFSET_GY, OFFSET_GZ, OFFSET_AX, OFFSET_AY, OFFSET_AZ);
 }
 
 void MPU9250::Task()
 {
     float rollGyro = 0.0f;
     float pitchGyro = 0.0f;
+    float yawGyro = 0.0f;
 
     esp_err_t ret = i2c_master_init();
 
     if (ret != ESP_OK)
     {
-        ESP_LOGE(TAG, "I2C initialization failed");
+        ESP_LOGE(TAG_IMU, "I2C initialization failed");
         return;
     }
-    ESP_LOGI(TAG, "I2C initialized");
+    ESP_LOGI(TAG_IMU, "I2C initialized");
 
-    
 
     initMPU9250();
     lastTime = xTaskGetTickCount() * portTICK_PERIOD_MS;
@@ -155,12 +153,14 @@ void MPU9250::Task()
         // Integrate gyro data
         rollGyro += gx * dt;
         pitchGyro += gy * dt;
+        yawGyro += gz * dt;
 
         if (xSemaphoreTake(xOrientationMutex, portMAX_DELAY))
         {
             // Complementary filter
             MPU9250::orientation.roll = alphaRoll * rollGyro + (1.0f - alphaRoll) * rollAcc;
             MPU9250::orientation.pitch = alphaPitch * pitchGyro + (1.0f - alphaPitch) * pitchAcc;
+            MPU9250::orientation.yaw = yawGyro; // No complementary filter for yaw
             xSemaphoreGive(xOrientationMutex);
         }
 

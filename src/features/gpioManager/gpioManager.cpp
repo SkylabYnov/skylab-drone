@@ -1,4 +1,4 @@
-#include <features/gpioManager/gpioManager.h>
+#include <features/GpioManager/GpioManager.h>
 
 GpioManager::GpioManager(gpio_num_t ledPin, gpio_num_t wifiPin)
     : ledPin(ledPin), wifiPin(wifiPin) {}
