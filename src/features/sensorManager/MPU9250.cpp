@@ -103,7 +103,8 @@ void MPU9250::calibrate_gyro_offsets()
     OFFSET_AY = aySum / samples;
     OFFSET_AZ = azSum / samples;
 
-    ESP_LOGI(TAG_IMU, "Gyro offsets: GX=%.3f, GY=%.3f, GZ=%.3f, AX=%.3f, AY=%.3f, AZ=%.3f", OFFSET_GX, OFFSET_GY, OFFSET_GZ, OFFSET_AX, OFFSET_AY, OFFSET_AZ);
+    ESP_LOGI(TAG_IMU, "Gyroscope offsets: GX=%.3f, GY=%.3f, GZ=%.3f", OFFSET_GX, OFFSET_GY, OFFSET_GZ);
+    ESP_LOGI(TAG_IMU, "Accelerometer offsets: AX=%.3f, AY=%.3f, AZ=%.3f", OFFSET_AX, OFFSET_AY, OFFSET_AZ);
 }
 
 void MPU9250::Task()
@@ -150,7 +151,7 @@ void MPU9250::Task()
         float rollAcc = atan2f(ay, az) * RAD_TO_DEG;
         float pitchAcc = atanf(-ax / sqrtf(ay * ay + az * az)) * RAD_TO_DEG;
 
-        // Integrate gyro data
+        // Gyroscope: integrate to get roll/pitch
         rollGyro += gx * dt;
         pitchGyro += gy * dt;
         yawGyro += gz * dt;

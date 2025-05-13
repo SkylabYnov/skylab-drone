@@ -23,10 +23,12 @@ bool MotorManager::init()
 {
     ESP_LOGI(TAG_MOTOR_MANAGER, "Initializing MCPWM...");
 
-    for (int i = 0; i < NUM_MOTORS; i++)
+    // Define shared timers for each group
+    mcpwm_timer_handle_t shared_timers[2] = {nullptr, nullptr};
+
+    for (int group_id = 0; group_id < 2; ++group_id)
     {
-        // Create timer configuration
-        int group_id = i / 2; // Use group 0 for motors 0,1 and group 1 for motors 2,3
+        // Create a shared timer for each group
         mcpwm_timer_config_t timer_config = {
             .group_id = group_id,
             .clk_src = MCPWM_TIMER_CLK_SRC_DEFAULT,
@@ -39,7 +41,16 @@ bool MotorManager::init()
                 .update_period_on_sync = false,
                 .allow_pd = false,
             }};
-        ESP_ERROR_CHECK(mcpwm_new_timer(&timer_config, &motorPwmConfigs[i].timer));
+        if (mcpwm_new_timer(&timer_config, &shared_timers[group_id]) != ESP_OK)
+        {
+            ESP_LOGE(TAG_MOTOR_MANAGER, "Failed to create timer for group %d", group_id);
+            return false;
+        }
+    }
+
+    for (int i = 0; i < NUM_MOTORS; i++)
+    {
+        int group_id = i / 2; // Use group 0 for motors 0,1 and group 1 for motors 2,3
 
         // Create operator configuration
         mcpwm_operator_config_t operator_config = {
@@ -53,8 +64,17 @@ bool MotorManager::init()
                 .update_dead_time_on_tep = false,
                 .update_dead_time_on_sync = false,
             }};
-        ESP_ERROR_CHECK(mcpwm_new_operator(&operator_config, &motorPwmConfigs[i].operator_handle));
-        ESP_ERROR_CHECK(mcpwm_operator_connect_timer(motorPwmConfigs[i].operator_handle, motorPwmConfigs[i].timer));
+        if (mcpwm_new_operator(&operator_config, &motorPwmConfigs[i].operator_handle) != ESP_OK)
+        {
+            ESP_LOGE(TAG_MOTOR_MANAGER, "Failed to create operator for motor %d", i);
+            return false;
+        }
+
+        if (mcpwm_operator_connect_timer(motorPwmConfigs[i].operator_handle, shared_timers[group_id]) != ESP_OK)
+        {
+            ESP_LOGE(TAG_MOTOR_MANAGER, "Failed to connect operator to timer for motor %d", i);
+            return false;
+        }
 
         // Create comparator configuration
         mcpwm_comparator_config_t comparator_config = {
@@ -64,7 +84,11 @@ bool MotorManager::init()
                 .update_cmp_on_tep = false,
                 .update_cmp_on_sync = false,
             }};
-        ESP_ERROR_CHECK(mcpwm_new_comparator(motorPwmConfigs[i].operator_handle, &comparator_config, &motorPwmConfigs[i].comparator));
+        if (mcpwm_new_comparator(motorPwmConfigs[i].operator_handle, &comparator_config, &motorPwmConfigs[i].comparator) != ESP_OK)
+        {
+            ESP_LOGE(TAG_MOTOR_MANAGER, "Failed to create comparator for motor %d", i);
+            return false;
+        }
 
         // Create generator configuration
         mcpwm_generator_config_t generator_config = {
@@ -76,29 +100,56 @@ bool MotorManager::init()
                 .pull_up = false,
                 .pull_down = false,
             }};
-        ESP_ERROR_CHECK(mcpwm_new_generator(motorPwmConfigs[i].operator_handle, &generator_config, &motorPwmConfigs[i].generator));
+        if (mcpwm_new_generator(motorPwmConfigs[i].operator_handle, &generator_config, &motorPwmConfigs[i].generator) != ESP_OK)
+        {
+            ESP_LOGE(TAG_MOTOR_MANAGER, "Failed to create generator for motor %d", i);
+            return false;
+        }
 
         // Set generator actions
-        ESP_ERROR_CHECK(mcpwm_generator_set_action_on_timer_event(
-            motorPwmConfigs[i].generator,
-            MCPWM_GEN_TIMER_EVENT_ACTION(
-                MCPWM_TIMER_DIRECTION_UP,
-                MCPWM_TIMER_EVENT_EMPTY,
-                MCPWM_GEN_ACTION_HIGH)));
+        if (mcpwm_generator_set_action_on_timer_event(
+                motorPwmConfigs[i].generator,
+                MCPWM_GEN_TIMER_EVENT_ACTION(
+                    MCPWM_TIMER_DIRECTION_UP,
+                    MCPWM_TIMER_EVENT_EMPTY,
+                    MCPWM_GEN_ACTION_HIGH)) != ESP_OK)
+        {
+            ESP_LOGE(TAG_MOTOR_MANAGER, "Failed to set generator action on timer event for motor %d", i);
+            return false;
+        }
 
-        ESP_ERROR_CHECK(mcpwm_generator_set_action_on_compare_event(
-            motorPwmConfigs[i].generator,
-            MCPWM_GEN_COMPARE_EVENT_ACTION(
-                MCPWM_TIMER_DIRECTION_UP,
-                motorPwmConfigs[i].comparator,
-                MCPWM_GEN_ACTION_LOW)));
+        if (mcpwm_generator_set_action_on_compare_event(
+                motorPwmConfigs[i].generator,
+                MCPWM_GEN_COMPARE_EVENT_ACTION(
+                    MCPWM_TIMER_DIRECTION_UP,
+                    motorPwmConfigs[i].comparator,
+                    MCPWM_GEN_ACTION_LOW)) != ESP_OK)
+        {
+            ESP_LOGE(TAG_MOTOR_MANAGER, "Failed to set generator action on compare event for motor %d", i);
+            return false;
+        }
 
         // Set initial duty cycle (idle)
-        ESP_ERROR_CHECK(mcpwm_comparator_set_compare_value(motorPwmConfigs[i].comparator, MIN_PULSE_TICKS));
+        if (mcpwm_comparator_set_compare_value(motorPwmConfigs[i].comparator, MIN_PULSE_TICKS) != ESP_OK)
+        {
+            ESP_LOGE(TAG_MOTOR_MANAGER, "Failed to set initial compare value for motor %d", i);
+            return false;
+        }
+    }
 
-        // Start MCPWM timer
-        ESP_ERROR_CHECK(mcpwm_timer_enable(motorPwmConfigs[i].timer));
-        ESP_ERROR_CHECK(mcpwm_timer_start_stop(motorPwmConfigs[i].timer, MCPWM_TIMER_START_NO_STOP));
+    // Enable and start timers
+    for (int group_id = 0; group_id < 2; ++group_id)
+    {
+        if (mcpwm_timer_enable(shared_timers[group_id]) != ESP_OK)
+        {
+            ESP_LOGE(TAG_MOTOR_MANAGER, "Failed to enable timer for group %d", group_id);
+            return false;
+        }
+        if (mcpwm_timer_start_stop(shared_timers[group_id], MCPWM_TIMER_START_NO_STOP) != ESP_OK)
+        {
+            ESP_LOGE(TAG_MOTOR_MANAGER, "Failed to start timer for group %d", group_id);
+            return false;
+        }
     }
 
     // Send initial idle signal to arm ESCs
@@ -238,13 +289,12 @@ void MotorManager::Task()
     }
 }
 
+// Function to update throttle based on input
 void MotorManager::updateThrottle(float throttleInput)
 {
     for (int i = 0; i < NUM_MOTORS; i++)
     {
-        motorSpeeds[i] = std::clamp(
-            motorSpeeds[i] + throttleInput * 0.001f,
-            0.0f,
-            1.0f);
+        motorSpeeds[i] = std::clamp(motorSpeeds[i] + throttleInput * 0.001f, 0.0f, 1.0f);
+        ESP_LOGI(TAG_MOTOR_MANAGER, "Motor %d speed updated to %.4f", i, motorSpeeds[i]);
     }
 }

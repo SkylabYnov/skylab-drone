@@ -38,25 +38,16 @@ struct Orientation
 class MPU9250
 {
 public:
-    float OFFSET_AX = 0.00f;
-    float OFFSET_AY = 0.00f;
-    float OFFSET_AZ = 0.00f;
-    float OFFSET_GX = 0.00f;
-    float OFFSET_GY = 0.00f;
-    float OFFSET_GZ = 0.00f;
-
     float alphaRoll = 0.97f;  // Constante du filtre complémentaire
     float alphaPitch = 0.96f; // Constante du filtre complémentaire
 
     static SemaphoreHandle_t xOrientationMutex;
+    MPU9250();
+    void Task();
     static Orientation orientation;
 
-    MPU9250();
-
-    void Task();
-
 private:
-    uint32_t lastTime = 0;
+    uint32_t lastTime;
     esp_err_t i2c_master_init();
     esp_err_t writeRegister(uint8_t devAddr, uint8_t reg, uint8_t value);
     esp_err_t readRegisters(uint8_t devAddr, uint8_t reg, uint8_t count, uint8_t *dest);
@@ -65,6 +56,11 @@ private:
     float readGyro(uint8_t axisOffset);
 
     void calibrate_gyro_offsets();
+
+    // Calibration offsets
+    float OFFSET_AX = 0.00f, OFFSET_AY = 0.00f, OFFSET_AZ = 0.00f;
+    float OFFSET_GX = 0.00f, OFFSET_GY = 0.00f, OFFSET_GZ = 0.00f;
+    float OFFSET_MX = 0.00f, OFFSET_MY = 0.00f, OFFSET_MZ = 0.00f;
 };
 
 #endif
