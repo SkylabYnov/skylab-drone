@@ -171,20 +171,21 @@ void MotorManager::setMotorSpeed(int motorIndex, float speed)
         return;
     }
 
-    uint32_t pulse_width_ticks = static_cast<uint32_t>(
-        speed * (MAX_PULSE_TICKS - MIN_PULSE_TICKS) + MIN_PULSE_TICKS);
+    speed = fmaxf(0.0f, fminf(1.0f, speed));
+
+    uint32_t pulse_ticks = MIN_PULSE_TICKS + (uint32_t)((MAX_PULSE_TICKS - MIN_PULSE_TICKS) * speed);
 
     ESP_ERROR_CHECK(
         mcpwm_comparator_set_compare_value(
             motorPwmConfigs[motorIndex].comparator,
-            pulse_width_ticks));
+            pulse_ticks));
 
     ESP_LOGI(
         TAG_MOTOR_MANAGER,
         "Motor %d set to speed %.4f (pulse width: %" PRIu32 " µs)",
         motorIndex,
         speed,
-        pulse_width_ticks);
+        pulse_ticks);
 }
 
 // Function to handle emergency stop
