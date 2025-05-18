@@ -15,9 +15,14 @@ MotorManager::MotorManager() {
     isEmergencyStop = false;
 }
 
+MotorManager::~MotorManager() {
+    imu = nullptr;
+}
+
 // Function to initialize the motor manager
-bool MotorManager::init() {
+bool MotorManager::init(MPU9250 *imu) {
     ESP_LOGI(TAG_MOTOR_MANAGER, "Initializing MCPWM...");
+    this->imu = imu;
 
     for (int i = 0; i < NUM_MOTORS; i++) {
         // Create timer configuration
@@ -164,15 +169,11 @@ void MotorManager::resetEmergencyStop() {
 // Function call to start the task
 void MotorManager::Task() {
     ControllerRequestDTO lastControllerRequestDTO;
+    MPU9250::Orientation currentOrientation;
 
     while (true) {
         ControllerRequestDTO controllerRequestDTO;
-
-        Orientation currentOrientation;
-        if (xSemaphoreTake(MPU9250::xOrientationMutex, pdMS_TO_TICKS(5))) {
-            currentOrientation = MPU9250::orientation;
-            xSemaphoreGive(MPU9250::xOrientationMutex);
-        }
+        currentOrientation = imu->getOrientation(); // Get current orientation from MPU9250
 
 
         if (xSemaphoreTake(xControllerRequestMutex, portMAX_DELAY)) {
