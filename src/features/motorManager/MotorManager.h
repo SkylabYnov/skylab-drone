@@ -1,15 +1,14 @@
 #ifndef MOTOR_MANAGER_H
 #define MOTOR_MANAGER_H
 
-#include <features/PidManager/PidManager.h>
-#include <features/SensorManager/MPU9250.h>
+#include <features/PID/PID.h>
 #include <ControllerRequestDTO.h>
-
 #include "driver/mcpwm_prelude.h"
 #include "esp_log.h"
 #include <algorithm>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "mpu9250.h"
 
 #define NUM_MOTORS 4
 #define TAG_MOTOR_MANAGER "MotorManager"
@@ -18,7 +17,8 @@ class MotorManager
 {
 public:
     MotorManager();
-    bool init();
+    ~MotorManager();
+    bool init(MPU9250 *imu);
     void setMotorSpeed(int motorIndex, float speed); // Speed between 0.0 and 1.0
     void emergencyStop();
     void resetEmergencyStop();
@@ -36,7 +36,12 @@ private:
         mcpwm_gen_handle_t generator;
     };
 
-    const int escPins[NUM_MOTORS] = {13, 12, 14, 15};
+    const int escPins[NUM_MOTORS] = {
+        26, // Avant gauche
+        17, // Avant droit
+        16, // Arrière droit
+        27  // Arrière gauche
+    };
     MotorPwmConfig motorPwmConfigs[NUM_MOTORS];
 
     static constexpr int PWM_FREQ_HZ = 50;                                      // 50Hz for ESCs
@@ -57,6 +62,8 @@ private:
 
     PidManager pidPitch{pkp, pki, pkd}; // PID controller for pitch
     PidManager pidRoll{rkp, rki, rkd};  // PID controller for roll
+
+    MPU9250 *imu;
 
     void updateThrottle(float throttleInput);
 };

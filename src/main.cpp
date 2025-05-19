@@ -1,8 +1,8 @@
-#include <features/EspNowHandler/EspNowHandler.h>
-#include <features/MotorManager/MotorManager.h>
-#include <features/SensorManager/MPU9250.h>
-#include <features/GpioManager/GpioManager.h>
+#include <features/espNowHandler/EspNowHandler.h>
+#include <features/motorManager/MotorManager.h>
+#include <features/gpioManager/gpioManager.h>
 
+#include "mpu9250.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
@@ -13,7 +13,9 @@
 EspNowHandler *espNowHandler;
 GpioManager *gpioManager;
 MotorManager *motorManager;
-MPU9250 *MPU9250Manager;
+MPU9250 *imu;
+
+static const char *TAG_MAIN = "MAIN";
 
 extern "C" void app_main(void)
 {
@@ -25,7 +27,7 @@ extern "C" void app_main(void)
     gpioManager = new GpioManager(GPIO_NUM_21, GPIO_NUM_2);
     if (!gpioManager)
     {
-        ESP_LOGE("app_main", "Erreur allocation gpioManager");
+        ESP_LOGE(TAG_MAIN, "Erreur allocation gpioManager");
         return;
     }
     gpioManager->init();
@@ -34,27 +36,46 @@ extern "C" void app_main(void)
     espNowHandler = new EspNowHandler();
     if (!espNowHandler->init())
     {
-        ESP_LOGE("MAIN", "ESP-NOW init failed!");
+        ESP_LOGE(TAG_MAIN, "ESP-NOW init failed!");
         return;
     }
 
+    // Initialize MPU9250
+    imu = new MPU9250();
+    imu->setFilterMode(MPU9250::MAHONY);
+
+    esp_err_t err = imu->init(I2C_NUM_0, GPIO_NUM_21, GPIO_NUM_22); // Set appropriate SDA/SCL pins
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG_MAIN, "Failed to initialize MPU9250");
+        return;
+    }
+
+    err = imu->calibrate();
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG_MAIN, "Failed to start calibration");
+        return;
+    }
+
+    err = imu->startSensorTask();
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG_MAIN, "Failed to start sensor task");
+        return;
+    }
+
+
     // Initialize ESP-NOW handlers
     motorManager = new MotorManager();
-    if (!motorManager->init())
+    if (!motorManager->init(imu))
     {
         ESP_LOGE("MAIN", "MotorManager init failed!");
         return;
     }
 
-    // Initialize MPU9250
-    MPU9250Manager = new MPU9250();
-
     // Initialize tasks
     xTaskCreate([](void *)
                 { motorManager->Task(); },
                 "MotorManagerTask", 4096, &motorManager, 5, nullptr);
-
-    xTaskCreate([](void *)
-                { MPU9250Manager->Task(); },
-                "MPU9250ManagerTask", 4096, &MPU9250Manager, 5, nullptr);
 }
