@@ -1,6 +1,5 @@
 #include <features/espNowHandler/EspNowHandler.h>
 #include <features/motorManager/MotorManager.h>
-#include <features/gpioManager/gpioManager.h>
 
 #include "mpu9250.h"
 #include "freertos/FreeRTOS.h"
@@ -11,7 +10,6 @@
 #include "esp_event.h"
 
 EspNowHandler *espNowHandler;
-GpioManager *gpioManager;
 MotorManager *motorManager;
 MPU9250 *imu;
 
@@ -22,15 +20,6 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-
-    // Initialize GPIO for LED and WiFi
-    gpioManager = new GpioManager(GPIO_NUM_21, GPIO_NUM_2);
-    if (!gpioManager)
-    {
-        ESP_LOGE(TAG_MAIN, "Erreur allocation gpioManager");
-        return;
-    }
-    gpioManager->init();
 
     // Initialize ESP-NOW
     espNowHandler = new EspNowHandler();
