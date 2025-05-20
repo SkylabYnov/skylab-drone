@@ -19,8 +19,8 @@ public:
     ~MotorManager();
     bool init(MPU9250 *imu);
     void setMotorSpeed(int motorIndex, float speed); // Speed between 0.0 and 1.0
-    void emergencyStop();
-    void resetEmergencyStop();
+    void disableMotorArming();
+    void enableMotorArming();
     void Task();
 
     static SemaphoreHandle_t xControllerRequestMutex;
@@ -56,7 +56,7 @@ private:
     static constexpr float rkd = 0.05f; // Derivative gain
 
     float motorSpeeds[NUM_MOTORS] = {0};
-    bool isEmergencyStop = false;
+    bool isMotorArming = false;
 
     PID pidPitch{pkp, pki, pkd}; // PID controller for pitch
     PID pidRoll{rkp, rki, rkd};   // PID controller for roll
