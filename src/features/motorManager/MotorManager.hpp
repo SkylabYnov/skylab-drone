@@ -65,26 +65,24 @@ private:
     static constexpr uint32_t MAX_ANGLE = 30; // Maximum angle for roll and pitch in degrees
     static constexpr uint32_t MAX_YAW_RATE = 45; // Maximum yaw rate in degrees per second
 
-    static constexpr float pkp = 1.0f;  // Proportional gain
-    static constexpr float pki = 0.0f;  // Integral gain
-    static constexpr float pkd = 0.05f; // Derivative gain
-    static constexpr float rkp = 1.0f;  // Proportional gain
-    static constexpr float rki = 0.0f;  // Integral gain
-    static constexpr float rkd = 0.05f; // Derivative gain
-    static constexpr float yawkp = 1.0f;  // Proportional gain
-    static constexpr float yawki = 0.0f;  // Integral gain
-    static constexpr float yawkd = 0.05f; // Derivative gain
+    static constexpr float pkp = 4.8f;  // Proportional gain
+    static constexpr float pki = 0.05f;  // Integral gain
+    static constexpr float pkd = 22.0f; // Derivative gain
+    static constexpr float rkp = 4.8f;  // Proportional gain
+    static constexpr float rki = 0.05f;  // Integral gain
+    static constexpr float rkd = 22.0f; // Derivative gain
+    static constexpr float yawkp = 8.5f;  // Proportional gain
+    static constexpr float yawki = 0.045f;  // Integral gain
+    static constexpr float yawkd = 0.0f; // Derivative gain
 
-    uint32_t motorSpeeds[NUM_MOTORS] = {0};
+    float motorSpeeds[NUM_MOTORS] = {0};
     bool isMotorArmed = false;
 
     PidManager pidPitch{pkp, pki, pkd}; // PID controller for pitch
     PidManager pidRoll{rkp, rki, rkd};  // PID controller for roll
-    PidManager pidYaw{rkp, rki, rkd};  // PID controller for roll
+    PidManager pidYaw{yawkp, yawki, yawkd};  // PID controller for roll
 
     MPU9250 *imu;
-
-    void updateThrottle(float throttleInput);
 };
 
 #endif

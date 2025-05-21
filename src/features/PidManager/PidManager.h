@@ -1,3 +1,6 @@
+#ifndef PIDMANAGER_H
+#define PIDMANAGER_H
+
 class PidManager
 {
 public:
@@ -10,3 +13,5 @@ private:
     float previousError;
     float integral;
 };
+
+#endif // PIDMANAGER_H

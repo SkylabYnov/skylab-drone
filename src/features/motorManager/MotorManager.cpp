@@ -336,13 +336,3 @@ void MotorManager::Task()
         vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
-
-// Function to update throttle based on input
-void MotorManager::updateThrottle(float throttleInput)
-{
-    for (int i = 0; i < NUM_MOTORS; i++)
-    {
-        motorSpeeds[i] = std::clamp(motorSpeeds[i] + throttleInput * 0.001f, 0.0f, 1.0f);
-        ESP_LOGI(TAG_MOTOR_MANAGER, "Motor %d speed updated to %.4f", i, motorSpeeds[i]);
-    }
-}
