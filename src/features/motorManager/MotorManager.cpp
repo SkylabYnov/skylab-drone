@@ -209,12 +209,12 @@ void MotorManager::setMotorSpeed(int motorIndex, u_int32_t pulse_ticks)
             motorPwmConfigs[motorIndex].comparator,
             pulse));
 
-    ESP_LOGI(
-        TAG_MOTOR_MANAGER,
-        "Motor %d set to speed %.4f (pulse width: %" PRIu32 " µs)",
-        motorIndex,
-        pulse,
-        pulse_ticks);
+    // ESP_LOGI(
+    //     TAG_MOTOR_MANAGER,
+    //     "Motor %d set to speed %.4f (pulse width: %" PRIu32 " µs)",
+    //     motorIndex,
+    //     pulse,
+    //     pulse_ticks);
 }
 
 // Function to handle emergency stop
