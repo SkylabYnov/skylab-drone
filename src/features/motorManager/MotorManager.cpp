@@ -1,4 +1,4 @@
-#include <features/MotorManager/MotorManager.h>
+#include "features/MotorManager/MotorManager.hpp"
 #include <inttypes.h>
 #include "esp_timer.h"
 
@@ -15,12 +15,14 @@ MotorManager::MotorManager()
     }
 }
 
-MotorManager::~MotorManager() {
+MotorManager::~MotorManager()
+{
     imu = nullptr;
 }
 
 // Function to initialize the motor manager
-bool MotorManager::init(MPU9250 *imu) {
+bool MotorManager::init(MPU9250 *imu)
+{
     ESP_LOGI(TAG_MOTOR_MANAGER, "Initializing MCPWM...");
     this->imu = imu;
 
@@ -138,6 +140,25 @@ bool MotorManager::init(MPU9250 *imu) {
         }
     }
 
+    // Synchronize the timers
+    // Source timer for synchronization (Master timer, group 0)
+    mcpwm_sync_handle_t sync_src = NULL;
+    mcpwm_timer_sync_src_config_t sync_src_config = {
+        .timer_event = MCPWM_TIMER_EVENT_EMPTY, // Trigger when timer count is zero
+        .flags = {
+            .propagate_input_sync = false,
+        }};
+
+    ESP_ERROR_CHECK(mcpwm_new_timer_sync_src(shared_timers[0], &sync_src_config, &sync_src));
+
+    // Phase timer synchronization (Slave timer, group 1)
+    mcpwm_timer_sync_phase_config_t sync_config = {
+        .sync_src = sync_src,
+        .count_value = 0, // Start counting from 0 upon synchronization
+        .direction = MCPWM_TIMER_DIRECTION_UP,
+    };
+    ESP_ERROR_CHECK(mcpwm_timer_set_phase_on_sync(shared_timers[1], &sync_config));
+
     // Enable and start timers
     for (int group_id = 0; group_id < 2; ++group_id)
     {
@@ -165,8 +186,10 @@ bool MotorManager::init(MPU9250 *imu) {
 }
 
 // Function to set motor speed
-void MotorManager::setMotorSpeed(int motorIndex, float speed) {
-    if (!isMotorArming || motorIndex < 0 || motorIndex >= NUM_MOTORS) {
+void MotorManager::setMotorSpeed(int motorIndex, float speed)
+{
+    if (!isMotorArming || motorIndex < 0 || motorIndex >= NUM_MOTORS)
+    {
         return;
     }
 
@@ -188,9 +211,11 @@ void MotorManager::setMotorSpeed(int motorIndex, float speed) {
 }
 
 // Function to handle emergency stop
-void MotorManager::disableMotorArming() {
+void MotorManager::disableMotorArming()
+{
     isMotorArming = false;
-    for (int i = 0; i < NUM_MOTORS; i++) {
+    for (int i = 0; i < NUM_MOTORS; i++)
+    {
         motorSpeeds[i] = 0.0f;
         mcpwm_comparator_set_compare_value(motorPwmConfigs[i].comparator, MIN_PULSE_TICKS);
     }
@@ -198,7 +223,8 @@ void MotorManager::disableMotorArming() {
 }
 
 // Function to reset the emergency stop
-void MotorManager::enableMotorArming() {
+void MotorManager::enableMotorArming()
+{
     isMotorArming = true;
     ESP_LOGI(TAG_MOTOR_MANAGER, "enable Motor Arming; motors zeroed");
     // Optionally re‑arm ESCs by sending idle pulse for a moment:
@@ -225,10 +251,14 @@ void MotorManager::Task()
         {
             controllerRequestDTO = currentControllerRequestDTO;
 
-            if (controllerRequestDTO.buttonMotorArming && !*controllerRequestDTO.buttonMotorArming) {
-                if(*controllerRequestDTO.buttonMotorArming){
+            if (controllerRequestDTO.buttonMotorArming && !*controllerRequestDTO.buttonMotorArming)
+            {
+                if (*controllerRequestDTO.buttonMotorArming)
+                {
                     enableMotorArming();
-                }else{
+                }
+                else
+                {
                     disableMotorArming();
                 }
             }
@@ -244,8 +274,9 @@ void MotorManager::Task()
             }
 
             if (!isMotorArming && lastControllerRequestDTO.flightController &&
-                !lastControllerRequestDTO.flightController->isFullZero()) {
-            
+                !lastControllerRequestDTO.flightController->isFullZero())
+            {
+
                 updateThrottle(lastControllerRequestDTO.flightController->throttle);
 
                 // Compute dt (delta time) for PID calculations

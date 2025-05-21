@@ -1,10 +1,15 @@
 #ifndef MOTOR_MANAGER_H
 #define MOTOR_MANAGER_H
 
+extern "C" {
+    #include "driver/mcpwm_prelude.h"
+    #include "driver/gpio.h"
+}
+
 #include "features/PidManager/PidManager.h"
 #include <ControllerRequestDTO.h>
-#include "driver/mcpwm_prelude.h"
 #include "esp_log.h"
+#include "esp_err.h"
 #include <algorithm>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
