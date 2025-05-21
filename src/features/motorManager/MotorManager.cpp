@@ -177,7 +177,7 @@ bool MotorManager::init(MPU9250 *imu)
     // Send initial idle signal to arm ESCs
     for (int i = 0; i < NUM_MOTORS; i++)
     {
-        setMotorSpeed(i, 0.0f);
+        setMotorSpeed(i, 0);
     }
     vTaskDelay(pdMS_TO_TICKS(2000));
 
@@ -185,28 +185,35 @@ bool MotorManager::init(MPU9250 *imu)
     return true;
 }
 
+inline u_int32_t constrain(u_int32_t val, u_int32_t min, u_int32_t max)
+{
+    if (val < min)
+        return min;
+    if (val > max)
+        return max;
+    return val;
+}
+
 // Function to set motor speed
-void MotorManager::setMotorSpeed(int motorIndex, float speed)
+void MotorManager::setMotorSpeed(int motorIndex, u_int32_t pulse_ticks)
 {
     if (!isMotorArmed || motorIndex < 0 || motorIndex >= NUM_MOTORS)
     {
         return;
     }
 
-    speed = fmaxf(0.0f, fminf(1.0f, speed));
-
-    uint32_t pulse_ticks = MIN_PULSE_TICKS + (uint32_t)((MAX_PULSE_TICKS - MIN_PULSE_TICKS) * speed);
+    uint32_t pulse = MIN_PULSE_TICKS + constrain(pulse_ticks, 0, MAX_PULSE_TICKS - MIN_PULSE_TICKS);
 
     ESP_ERROR_CHECK(
         mcpwm_comparator_set_compare_value(
             motorPwmConfigs[motorIndex].comparator,
-            pulse_ticks));
+            pulse));
 
     ESP_LOGI(
         TAG_MOTOR_MANAGER,
         "Motor %d set to speed %.4f (pulse width: %" PRIu32 " µs)",
         motorIndex,
-        speed,
+        pulse,
         pulse_ticks);
 }
 
@@ -216,7 +223,7 @@ void MotorManager::disarmMotors()
     isMotorArmed = false;
     for (int i = 0; i < NUM_MOTORS; i++)
     {
-        motorSpeeds[i] = 0.0f;
+        motorSpeeds[i] = 0;
         mcpwm_comparator_set_compare_value(motorPwmConfigs[i].comparator, MIN_PULSE_TICKS);
     }
     ESP_LOGW(TAG_MOTOR_MANAGER, "disable Motor Arming");
@@ -230,7 +237,7 @@ void MotorManager::armMotors()
     // Optionally re‑arm ESCs by sending idle pulse for a moment:
     for (int i = 0; i < NUM_MOTORS; i++)
     {
-        setMotorSpeed(i, 0.0f);
+        setMotorSpeed(i, 0);
     }
     vTaskDelay(pdMS_TO_TICKS(500));
 }
@@ -286,23 +293,38 @@ void MotorManager::Task()
                 float targetRoll = 0.0f;
                 float targetYaw = 0.0f;
 
-                float targetPitch = lastControllerRequestDTO.flightController->pitch;
-                float targetRoll = lastControllerRequestDTO.flightController->roll;
-                float targetYaw = lastControllerRequestDTO.flightController->yaw;
+                // float targetPitch = lastControllerRequestDTO.flightController->pitch * MAX_ANGLE; // Convert to euler angles
+                // float targetRoll = lastControllerRequestDTO.flightController->roll * MAX_ANGLE;   // Convert to euler angles
+                // float targetYaw = lastControllerRequestDTO.flightController->yaw * MAX_YAW_RATE;     // Convert to euler angles per second
+                float targetThrottle = lastControllerRequestDTO.flightController->throttle * 1000.0f; // Convert to throttle value
 
                 float correctionPitch = pidPitch.calculate(targetPitch, currentOrientation.pitch, dt);
                 float correctionRoll = pidRoll.calculate(targetRoll, currentOrientation.roll, dt);
+                float correctionYaw = targetYaw - currentOrientation.yaw;
+                if (correctionYaw > 180.0f)
+                {
+                    correctionYaw -= 360.0f;
+                }
+                else if (correctionYaw < -180.0f)
+                {
+                    correctionYaw += 360.0f;
+                }
+                correctionYaw = pidYaw.calculate(targetYaw, correctionYaw, dt);
 
-                motorSpeeds[0] += correctionPitch + correctionRoll;  // Moteur 0 : avant-gauche
-                motorSpeeds[1] += correctionPitch - correctionRoll;  // Moteur 1 : avant-droit
-                motorSpeeds[2] += -correctionPitch - correctionRoll; // Moteur 2 : arrière-droit
-                motorSpeeds[3] += -correctionPitch + correctionRoll; // Moteur 3 : arrière-gauche
+                motorSpeeds[0] = targetThrottle + correctionPitch + correctionRoll + correctionYaw;  // Moteur 0 : avant-gauche
+                motorSpeeds[1] = targetThrottle + correctionPitch - correctionRoll - correctionYaw;  // Moteur 1 : avant-droit
+                motorSpeeds[2] = targetThrottle - correctionPitch - correctionRoll - correctionYaw; // Moteur 2 : arrière-droit
+                motorSpeeds[3] = targetThrottle - correctionPitch + correctionRoll + correctionYaw; // Moteur 3 : arrière-gauche
 
                 // Set motor speeds with clamping
                 for (int i = 0; i < NUM_MOTORS; i++)
                 {
-                    motorSpeeds[i] = std::clamp(motorSpeeds[i], 0.0f, 1.0f);
-                    setMotorSpeed(i, motorSpeeds[i]);
+                    if (targetThrottle < MIN_PULSE_TICKS) {
+                        setMotorSpeed(i, 0);
+                    }
+                    else {
+                        setMotorSpeed(i, motorSpeeds[i]);
+                    }
                 }
             }
 

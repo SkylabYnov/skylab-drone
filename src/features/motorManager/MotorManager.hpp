@@ -29,10 +29,10 @@ public:
     /*
     * @brief Set the speed of a motor.
     * @param motorIndex The index of the motor (0 to 3).
-    * @param speed The speed value (0.0 to 1.0).
+    * @param speed The speed of the motor (0 to 1000).
     * @return ESP_OK on success, or an error code on failure.
     */
-    void setMotorSpeed(int motorIndex, float speed);
+    void setMotorSpeed(int motorIndex, u_int32_t speed);
     void disarmMotors();
     void armMotors();
     void Task();
