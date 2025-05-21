@@ -1,11 +1,9 @@
 #ifndef MOTOR_MANAGER_H
 #define MOTOR_MANAGER_H
 
-extern "C"
-{
+
 #include "driver/mcpwm_prelude.h"
 #include "driver/gpio.h"
-}
 
 #include "features/PidManager/PidManager.h"
 #include <ControllerRequestDTO.h>
