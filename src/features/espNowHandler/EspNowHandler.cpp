@@ -1,6 +1,6 @@
-#include <features/espNowHandler/EspNowHandler.h>
+#include <features/EspNowHandler/EspNowHandler.h>
 
-uint8_t EspNowHandler::peer_mac[6] = ESP_MAC;
+uint8_t EspNowHandler::peer_mac[6] = ESP_DRONE_MAC;
 
 EspNowHandler::EspNowHandler() {}
 
@@ -9,7 +9,9 @@ EspNowHandler::~EspNowHandler() {}
 bool EspNowHandler::init()
 {
     ESP_ERROR_CHECK(nvs_flash_init());
+
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_start());

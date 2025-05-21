@@ -1,7 +1,10 @@
-class PID
+#ifndef PIDMANAGER_H
+#define PIDMANAGER_H
+
+class PidManager
 {
 public:
-    PID(float kp, float ki, float kd);
+    PidManager(float kp, float ki, float kd);
 
     float calculate(float setpoint, float measured, float dt);
 
@@ -10,3 +13,5 @@ private:
     float previousError;
     float integral;
 };
+
+#endif // PIDMANAGER_H

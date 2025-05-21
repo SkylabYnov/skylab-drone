@@ -1,7 +1,7 @@
 #ifndef ESP_NOW_HANDLER_H
 #define ESP_NOW_HANDLER_H
 
-#include <features/motorManager/MotorManager.h>
+#include "features/MotorManager/MotorManager.hpp"
 
 #include <esp_now.h>
 #include <esp_wifi.h>
@@ -11,7 +11,7 @@
 
 #define TAG_ESP_NOW "ESP_NOW"
 
-#define ESP_MAC {0x20, 0x43, 0xA8, 0x66, 0x43, 0xC8} // MAC du Drone
+#define ESP_DRONE_MAC {0x20, 0x43, 0xA8, 0x66, 0x43, 0xC8}
 
 class EspNowHandler
 {
