@@ -253,13 +253,12 @@ void MotorManager::Task()
     while (true)
     {
         currentOrientation = imu->getOrientation(); // Get current orientation from MPU9250
-
         ControllerRequestDTO controllerRequestDTO;
 
         if (xSemaphoreTake(xControllerRequestMutex, portMAX_DELAY))
         {
             controllerRequestDTO = currentControllerRequestDTO;
-
+          
             if (controllerRequestDTO.buttonMotorArming != nullptr)
             {
                 if (*controllerRequestDTO.buttonMotorArming)
