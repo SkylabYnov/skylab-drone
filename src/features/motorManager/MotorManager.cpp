@@ -1,4 +1,4 @@
-#include "features/MotorManager/MotorManager.hpp"
+#include "features/MotorManager/MotorManager.h"
 #include <inttypes.h>
 #include "esp_timer.h"
 
@@ -142,22 +142,22 @@ bool MotorManager::init(MPU9250 *imu)
 
     // Synchronize the timers
     // Source timer for synchronization (Master timer, group 0)
-    mcpwm_sync_handle_t sync_src = NULL;
-    mcpwm_timer_sync_src_config_t sync_src_config = {
-        .timer_event = MCPWM_TIMER_EVENT_EMPTY, // Trigger when timer count is zero
-        .flags = {
-            .propagate_input_sync = false,
-        }};
+    // mcpwm_sync_handle_t sync_src = NULL;
+    // mcpwm_timer_sync_src_config_t sync_src_config = {
+    //     .timer_event = MCPWM_TIMER_EVENT_EMPTY, // Trigger when timer count is zero
+    //     .flags = {
+    //         .propagate_input_sync = false,
+    //     }};
 
-    ESP_ERROR_CHECK(mcpwm_new_timer_sync_src(shared_timers[0], &sync_src_config, &sync_src));
+    // ESP_ERROR_CHECK(mcpwm_new_timer_sync_src(shared_timers[0], &sync_src_config, &sync_src));
 
-    // Phase timer synchronization (Slave timer, group 1)
-    mcpwm_timer_sync_phase_config_t sync_config = {
-        .sync_src = sync_src,
-        .count_value = 0, // Start counting from 0 upon synchronization
-        .direction = MCPWM_TIMER_DIRECTION_UP,
-    };
-    ESP_ERROR_CHECK(mcpwm_timer_set_phase_on_sync(shared_timers[1], &sync_config));
+    // // Phase timer synchronization (Slave timer, group 1)
+    // mcpwm_timer_sync_phase_config_t sync_config = {
+    //     .sync_src = sync_src,
+    //     .count_value = 0, // Start counting from 0 upon synchronization
+    //     .direction = MCPWM_TIMER_DIRECTION_UP,
+    // };
+    // ESP_ERROR_CHECK(mcpwm_timer_set_phase_on_sync(shared_timers[1], &sync_config));
 
     // Enable and start timers
     for (int group_id = 0; group_id < 2; ++group_id)
