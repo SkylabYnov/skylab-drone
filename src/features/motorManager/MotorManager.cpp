@@ -248,89 +248,104 @@ void MotorManager::Task()
     ControllerRequestDTO lastControllerRequestDTO;
     MPU9250::Orientation currentOrientation;
     int64_t lastTime = esp_timer_get_time();
+    bool localIsMotorArmed = false;
 
     while (true)
     {
-        ControllerRequestDTO controllerRequestDTO;
         currentOrientation = imu->getOrientation(); // Get current orientation from MPU9250
+
+        ControllerRequestDTO controllerRequestDTO;
 
         if (xSemaphoreTake(xControllerRequestMutex, portMAX_DELAY))
         {
             controllerRequestDTO = currentControllerRequestDTO;
 
-            if (controllerRequestDTO.buttonMotorArming && !*controllerRequestDTO.buttonMotorArming)
+            if (controllerRequestDTO.buttonMotorArming != nullptr)
             {
                 if (*controllerRequestDTO.buttonMotorArming)
                 {
                     armMotors();
+                    localIsMotorArmed = isMotorArmed; // Update local copy
                 }
                 else
                 {
                     disarmMotors();
+                    localIsMotorArmed = false; // Update local copy
                 }
             }
 
-            if (controllerRequestDTO.buttonMotorState && *controllerRequestDTO.buttonMotorState)
-            {
-                ESP_LOGI(TAG_MOTOR_MANAGER, "Motor state button activated");
-            }
+            // if (controllerRequestDTO.buttonMotorState && *controllerRequestDTO.buttonMotorState)
+            // {
+            //     ESP_LOGI(TAG_MOTOR_MANAGER, "Motor state button activated");
+            // }
 
-            if (controllerRequestDTO.flightController)
+            if (controllerRequestDTO.flightController != nullptr)
             {
                 lastControllerRequestDTO = controllerRequestDTO;
             }
+            xSemaphoreGive(xControllerRequestMutex);
+        }
 
-            if (isMotorArmed && lastControllerRequestDTO.flightController &&
-                !lastControllerRequestDTO.flightController->isFullZero())
+        if (localIsMotorArmed && lastControllerRequestDTO.flightController != nullptr)
+        {
+            // Compute dt (delta time) for PID calculations
+            int64_t now = esp_timer_get_time();
+            float dt = (now - lastTime) * 1e-6f;
+            lastTime = now;
+
+            // Correction PID
+            float targetPitch = 0.0f; // drone doit rester stable
+            float targetRoll = 0.0f;
+            float targetYaw = 0.0f;
+
+            // float targetPitch = lastControllerRequestDTO.flightController->pitch * MAX_ANGLE; // Convert to euler angles
+            // float targetRoll = lastControllerRequestDTO.flightController->roll * MAX_ANGLE;   // Convert to euler angles
+            // float targetYaw = lastControllerRequestDTO.flightController->yaw * MAX_YAW_RATE;     // Convert to euler angles per second
+            float targetThrottle = lastControllerRequestDTO.flightController->throttle * 1000.0f; // Convert to throttle value
+            if (targetThrottle < MIN_PULSE_TICKS)
             {
-                // Compute dt (delta time) for PID calculations
-                int64_t now = esp_timer_get_time();
-                float dt = (now - lastTime) * 1e-6f;
-                lastTime = now;
-
-                // Correction PID
-                float targetPitch = 0.0f; // drone doit rester stable
-                float targetRoll = 0.0f;
-                float targetYaw = 0.0f;
-
-                // float targetPitch = lastControllerRequestDTO.flightController->pitch * MAX_ANGLE; // Convert to euler angles
-                // float targetRoll = lastControllerRequestDTO.flightController->roll * MAX_ANGLE;   // Convert to euler angles
-                // float targetYaw = lastControllerRequestDTO.flightController->yaw * MAX_YAW_RATE;     // Convert to euler angles per second
-                float targetThrottle = lastControllerRequestDTO.flightController->throttle * 1000.0f; // Convert to throttle value
-
+                for (int i = 0; i < NUM_MOTORS; i++)
+                {
+                    setMotorSpeed(i, 0);
+                }
+            }
+            else
+            {
                 float correctionPitch = pidPitch.calculate(targetPitch, currentOrientation.pitch, dt);
                 float correctionRoll = pidRoll.calculate(targetRoll, currentOrientation.roll, dt);
-                float correctionYaw = targetYaw - currentOrientation.yaw;
-                if (correctionYaw > 180.0f)
-                {
-                    correctionYaw -= 360.0f;
-                }
-                else if (correctionYaw < -180.0f)
-                {
-                    correctionYaw += 360.0f;
-                }
-                correctionYaw = pidYaw.calculate(targetYaw, correctionYaw, dt);
 
-                motorSpeeds[0] = targetThrottle + correctionPitch + correctionRoll + correctionYaw;  // Moteur 0 : avant-gauche
-                motorSpeeds[1] = targetThrottle + correctionPitch - correctionRoll - correctionYaw;  // Moteur 1 : avant-droit
+                // Fix yaw correction calculation
+                float yawError = targetYaw - currentOrientation.yaw;
+                // Normalize to [-180, 180]
+                if (yawError > 180.0f)
+                {
+                    yawError -= 360.0f;
+                }
+                else if (yawError < -180.0f)
+                {
+                    yawError += 360.0f;
+                }
+                float correctionYaw = pidYaw.calculate(targetYaw, currentOrientation.yaw, dt);
+
+                motorSpeeds[0] = targetThrottle + correctionPitch + correctionRoll + correctionYaw; // Moteur 0 : avant-gauche
+                motorSpeeds[1] = targetThrottle + correctionPitch - correctionRoll - correctionYaw; // Moteur 1 : avant-droit
                 motorSpeeds[2] = targetThrottle - correctionPitch - correctionRoll - correctionYaw; // Moteur 2 : arrière-droit
                 motorSpeeds[3] = targetThrottle - correctionPitch + correctionRoll + correctionYaw; // Moteur 3 : arrière-gauche
 
                 // Set motor speeds with clamping
                 for (int i = 0; i < NUM_MOTORS; i++)
                 {
-                    if (targetThrottle < MIN_PULSE_TICKS) {
-                        setMotorSpeed(i, 0);
-                    }
-                    else {
-                        setMotorSpeed(i, motorSpeeds[i]);
-                    }
+                    setMotorSpeed(i, motorSpeeds[i]);
                 }
             }
-
-            // Clear the shared DTO
-            currentControllerRequestDTO.~ControllerRequestDTO();
-            xSemaphoreGive(xControllerRequestMutex);
+        }
+        else if (!localIsMotorArmed)
+        {
+            // Explicitly zero motors when disarmed for safety
+            for (int i = 0; i < NUM_MOTORS; i++)
+            {
+                setMotorSpeed(i, 0);
+            }
         }
 
         vTaskDelay(pdMS_TO_TICKS(10));
