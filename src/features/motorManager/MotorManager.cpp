@@ -133,7 +133,7 @@ bool MotorManager::init(MPU9250 *imu)
         }
 
         // Set initial duty cycle (idle)
-        if (mcpwm_comparator_set_compare_value(motorPwmConfigs[i].comparator, MIN_PULSE_TICKS) != ESP_OK)
+        if (mcpwm_comparator_set_compare_value(motorPwmConfigs[i].comparator, (MIN_PULSE_TICKS + MAX_PULSE_TICKS) * 0.5) != ESP_OK)
         {
             ESP_LOGE(TAG_MOTOR_MANAGER, "Failed to set initial compare value for motor %d", i);
             return false;
@@ -188,7 +188,7 @@ bool MotorManager::init(MPU9250 *imu)
 // Function to set motor speed
 void MotorManager::setMotorSpeed(int motorIndex, float speed)
 {
-    if (!isMotorArming || motorIndex < 0 || motorIndex >= NUM_MOTORS)
+    if (!isMotorArmed || motorIndex < 0 || motorIndex >= NUM_MOTORS)
     {
         return;
     }
@@ -211,9 +211,9 @@ void MotorManager::setMotorSpeed(int motorIndex, float speed)
 }
 
 // Function to handle emergency stop
-void MotorManager::disableMotorArming()
+void MotorManager::disarmMotors()
 {
-    isMotorArming = false;
+    isMotorArmed = false;
     for (int i = 0; i < NUM_MOTORS; i++)
     {
         motorSpeeds[i] = 0.0f;
@@ -223,9 +223,9 @@ void MotorManager::disableMotorArming()
 }
 
 // Function to reset the emergency stop
-void MotorManager::enableMotorArming()
+void MotorManager::armMotors()
 {
-    isMotorArming = true;
+    isMotorArmed = true;
     ESP_LOGI(TAG_MOTOR_MANAGER, "enable Motor Arming; motors zeroed");
     // Optionally re‑arm ESCs by sending idle pulse for a moment:
     for (int i = 0; i < NUM_MOTORS; i++)
@@ -255,11 +255,11 @@ void MotorManager::Task()
             {
                 if (*controllerRequestDTO.buttonMotorArming)
                 {
-                    enableMotorArming();
+                    armMotors();
                 }
                 else
                 {
-                    disableMotorArming();
+                    disarmMotors();
                 }
             }
 
@@ -273,20 +273,22 @@ void MotorManager::Task()
                 lastControllerRequestDTO = controllerRequestDTO;
             }
 
-            if (!isMotorArming && lastControllerRequestDTO.flightController &&
+            if (isMotorArmed && lastControllerRequestDTO.flightController &&
                 !lastControllerRequestDTO.flightController->isFullZero())
             {
-
-                updateThrottle(lastControllerRequestDTO.flightController->throttle);
-
                 // Compute dt (delta time) for PID calculations
                 int64_t now = esp_timer_get_time();
                 float dt = (now - lastTime) * 1e-6f;
                 lastTime = now;
 
                 // Correction PID
-                float targetPitch = 0.0f; // drone doit rester à plat
+                float targetPitch = 0.0f; // drone doit rester stable
                 float targetRoll = 0.0f;
+                float targetYaw = 0.0f;
+
+                float targetPitch = lastControllerRequestDTO.flightController->pitch;
+                float targetRoll = lastControllerRequestDTO.flightController->roll;
+                float targetYaw = lastControllerRequestDTO.flightController->yaw;
 
                 float correctionPitch = pidPitch.calculate(targetPitch, currentOrientation.pitch, dt);
                 float correctionRoll = pidRoll.calculate(targetRoll, currentOrientation.roll, dt);
