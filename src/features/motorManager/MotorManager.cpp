@@ -13,9 +13,6 @@ MotorManager::MotorManager()
     {
         motorSpeeds[i] = 0.0f;
     }
-
-    // Initialize emergency stop flag
-    isEmergencyStop = false;
 }
 
 MotorManager::~MotorManager() {
@@ -168,10 +165,8 @@ bool MotorManager::init(MPU9250 *imu) {
 }
 
 // Function to set motor speed
-void MotorManager::setMotorSpeed(int motorIndex, float speed)
-{
-    if (isEmergencyStop || motorIndex < 0 || motorIndex >= NUM_MOTORS)
-    {
+void MotorManager::setMotorSpeed(int motorIndex, float speed) {
+    if (!isMotorArming || motorIndex < 0 || motorIndex >= NUM_MOTORS) {
         return;
     }
 
@@ -193,22 +188,19 @@ void MotorManager::setMotorSpeed(int motorIndex, float speed)
 }
 
 // Function to handle emergency stop
-void MotorManager::emergencyStop()
-{
-    isEmergencyStop = true;
-    for (int i = 0; i < NUM_MOTORS; i++)
-    {
+void MotorManager::disableMotorArming() {
+    isMotorArming = false;
+    for (int i = 0; i < NUM_MOTORS; i++) {
         motorSpeeds[i] = 0.0f;
         mcpwm_comparator_set_compare_value(motorPwmConfigs[i].comparator, MIN_PULSE_TICKS);
     }
-    ESP_LOGW(TAG_MOTOR_MANAGER, "Emergency stop activated!");
+    ESP_LOGW(TAG_MOTOR_MANAGER, "disable Motor Arming");
 }
 
 // Function to reset the emergency stop
-void MotorManager::resetEmergencyStop()
-{
-    isEmergencyStop = false;
-    ESP_LOGI(TAG_MOTOR_MANAGER, "Emergency stop deactivated; motors zeroed");
+void MotorManager::enableMotorArming() {
+    isMotorArming = true;
+    ESP_LOGI(TAG_MOTOR_MANAGER, "enable Motor Arming; motors zeroed");
     // Optionally re‑arm ESCs by sending idle pulse for a moment:
     for (int i = 0; i < NUM_MOTORS; i++)
     {
@@ -233,10 +225,12 @@ void MotorManager::Task()
         {
             controllerRequestDTO = currentControllerRequestDTO;
 
-            if (controllerRequestDTO.buttonEmergencyStop && *controllerRequestDTO.buttonEmergencyStop)
-            {
-                ESP_LOGI(TAG_MOTOR_MANAGER, "Alert: Emergency stop button pressed!");
-                emergencyStop();
+            if (controllerRequestDTO.buttonMotorArming && !*controllerRequestDTO.buttonMotorArming) {
+                if(*controllerRequestDTO.buttonMotorArming){
+                    enableMotorArming();
+                }else{
+                    disableMotorArming();
+                }
             }
 
             if (controllerRequestDTO.buttonMotorState && *controllerRequestDTO.buttonMotorState)
@@ -249,10 +243,9 @@ void MotorManager::Task()
                 lastControllerRequestDTO = controllerRequestDTO;
             }
 
-            if (!isEmergencyStop && lastControllerRequestDTO.flightController &&
-                !lastControllerRequestDTO.flightController->isFullZero())
-            {
-
+            if (!isMotorArming && lastControllerRequestDTO.flightController &&
+                !lastControllerRequestDTO.flightController->isFullZero()) {
+            
                 updateThrottle(lastControllerRequestDTO.flightController->throttle);
 
                 // Compute dt (delta time) for PID calculations

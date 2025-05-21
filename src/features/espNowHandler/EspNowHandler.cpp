@@ -30,7 +30,7 @@ bool EspNowHandler::init()
     
             ControllerRequestDTO controllerRequestDTO = ControllerRequestDTO::fromStruct(receivedData);
     
-            if(controllerRequestDTO.flightController || controllerRequestDTO.buttonEmergencyStop || controllerRequestDTO.buttonMotorState){
+            if(controllerRequestDTO.flightController || controllerRequestDTO.buttonMotorArming || controllerRequestDTO.buttonMotorState){
                 // Protection avec un mutex
                 if (xSemaphoreTake(MotorManager::xControllerRequestMutex, portMAX_DELAY)) {
                     MotorManager::currentControllerRequestDTO.addInControllerRequestDTO(controllerRequestDTO);
